@@ -42,22 +42,22 @@ dev:
 
 ## Set the version in package.json
 set-version:
-	@if [ -z "$(NEW_VERSION)" ]; then \
-		echo "NEW_VERSION not specified. Usage: make set-version NEW_VERSION=1.2.3"; exit 1; \
+	@if [ -z "$(VER)" ]; then \
+		echo "VER not specified. Usage: make set-version VER=1.2.3"; exit 1; \
 	fi
 	@echo "=== Setting Version ==="
 	@echo "Current version in file:"
 	@grep '"version"' $(VERSION_FILE)
-	@echo "Setting to version: $(NEW_VERSION)"
+	@echo "Setting to version: $(VER)"
 	# macOS/BSD vs GNU sed compatibility
 	@if sed --version >/dev/null 2>&1; then \
-		sed -i "s/\"version\": \".*\"/\"version\": \"$(NEW_VERSION)\"/" $(VERSION_FILE); \
+		sed -i "s/\"version\": \".*\"/\"version\": \"$(VER)\"/" $(VERSION_FILE); \
 	else \
-		sed -i '' "s/\"version\": \".*\"/\"version\": \"$(NEW_VERSION)\"/" $(VERSION_FILE); \
+		sed -i '' "s/\"version\": \".*\"/\"version\": \"$(VER)\"/" $(VERSION_FILE); \
 	fi
 	@echo "New version in file:"
 	@grep '"version"' $(VERSION_FILE)
-	@echo "✅ Updated version to $(NEW_VERSION) in $(VERSION_FILE)"
+	@echo "✅ Updated version to $(VER) in $(VERSION_FILE)"
 
 ## Initialize Docker buildx for multi-platform builds
 init-buildx:
@@ -69,7 +69,7 @@ init-buildx:
 release: set-version init-buildx
 	@echo "=== Building and Pushing Multi-Platform Image ==="
 	docker buildx build --push --platform $(PLATFORMS) $(TAGS) .
-	@echo "🚀 Release complete for version $(NEW_VERSION)"
+	@echo "🚀 Release complete for version $(VER)"
 
 ## Tag an existing multi-arch image
 tag:
@@ -107,6 +107,6 @@ help:
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build                    # Build for current platform"
-	@echo "  make set-version NEW_VERSION=1.2.3  # Update version in package.json"
-	@echo "  make release NEW_VERSION=1.2.3      # Build and push a new release"
+	@echo "  make set-version VER=1.2.3  # Update version in package.json"
+	@echo "  make release VER=1.2.3      # Build and push a new release"
 	@echo "  make dev                      # Start development server with docker-compose"
