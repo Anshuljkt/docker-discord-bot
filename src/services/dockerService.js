@@ -1,5 +1,5 @@
 /**
- * DD_Bot - A Discord Bot to control Docker containers
+ * dd-bot - A Discord Bot to control Docker containers
  * Docker Service to interact with Docker API
  */
 

@@ -1,4 +1,4 @@
-/* DD_Bot - A Discord Bot to control Docker containers
+/* dd-bot - A Discord Bot to control Docker containers
    Copyright (C) 2022 Maxim Kovac - Rewritten to JS by Anshul
 */
 

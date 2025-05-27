@@ -4,7 +4,7 @@ IMAGE_NAME=anshuljkt1/docker-discord-bot
 VERSION_FILE=package.json
 
 # Extract version from package.json
-EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+[^"]*?)".*/\1/')
 
 # Extra tags can be passed as: make build EXTRA_TAGS="--tag $(IMAGE_NAME):prod"
 EXTRA_TAGS ?=

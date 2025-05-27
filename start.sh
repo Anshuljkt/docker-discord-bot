@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to start the DD_Bot JavaScript version
+# Script to start the dd-bot JavaScript version
 
 # Set terminal colors
 RED='\033[0;31m'
@@ -8,7 +8,7 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}DD_Bot JavaScript${NC} - A Discord Bot to control Docker containers"
+echo -e "${BLUE}dd-bot JavaScript${NC} - A Discord Bot to control Docker containers"
 echo "==============================================================="
 
 # Check if .env file exists
@@ -33,5 +33,5 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Start the bot
-echo -e "${GREEN}Starting DD_Bot...${NC}"
+echo -e "${GREEN}Starting dd-bot...${NC}"
 npm start

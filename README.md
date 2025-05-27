@@ -1,4 +1,4 @@
-# DD_Bot JavaScript Version
+# dd-bot JavaScript Version
 
 A Discord bot to control Docker containers, written in JavaScript with Discord.js.
 

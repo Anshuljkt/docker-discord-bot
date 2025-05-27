@@ -1,5 +1,5 @@
 /**
- * DD_Bot - A Discord Bot to control Docker containers
+ * dd-bot - A Discord Bot to control Docker containers
  * Settings Service to manage configuration
  */
 
@@ -10,9 +10,12 @@ const path = require('path');
 
 class SettingsService {
   constructor() {
+    console.log('[SettingsService] Initializing settings service...');
     this.settingsPath = path.resolve(process.cwd(), 'settings');
     this.settingsFile = path.join(this.settingsPath, 'settings.json');
     this.settings = null;
+    console.log('[SettingsService] Settings path:', this.settingsPath);
+    console.log('[SettingsService] Settings file:', this.settingsFile);
     this.ensureSettingsDirectory();
   }
 
@@ -20,14 +23,20 @@ class SettingsService {
    * Ensure the settings directory exists
    */
   ensureSettingsDirectory() {
+    console.log('[SettingsService] Ensuring settings directory exists...');
     if (!fsSync.existsSync(this.settingsPath)) {
       fsSync.mkdirSync(this.settingsPath, { recursive: true });
-      console.log(`Created settings directory: ${this.settingsPath}`);
+      console.log(`[SettingsService] Created settings directory: ${this.settingsPath}`);
+    } else {
+      console.log(`[SettingsService] Settings directory already exists: ${this.settingsPath}`);
     }
 
     if (!fsSync.existsSync(this.settingsFile)) {
+      console.log('[SettingsService] Settings file does not exist, creating default...');
       this.saveSettings(this.getDefaultSettings());
-      console.log(`Created default settings file: ${this.settingsFile}`);
+      console.log(`[SettingsService] Created default settings file: ${this.settingsFile}`);
+    } else {
+      console.log(`[SettingsService] Settings file exists: ${this.settingsFile}`);
     }
   }
 
@@ -36,7 +45,8 @@ class SettingsService {
    * @returns {Object} Default settings
    */
   getDefaultSettings() {
-    return {
+    console.log('[SettingsService] Generating default settings...');
+    const defaultSettings = {
       "LanguageSettings": {
         "Language": "en"
       },
@@ -59,6 +69,9 @@ class SettingsService {
         "ContainersPerMessage": 30
       }
     };
+    
+    console.log('[SettingsService] Default token from env:', !!process.env.DISCORD_TOKEN);
+    return defaultSettings;
   }
 
   /**
@@ -66,20 +79,30 @@ class SettingsService {
    * @returns {Promise<Object>} Settings object
    */
   async loadSettings() {
+    console.log('[SettingsService] Loading settings...');
     try {
       if (this.settings) {
+        console.log('[SettingsService] Settings already cached, returning cached version');
         return this.settings;
       }
       
+      console.log(`[SettingsService] Reading settings from: ${this.settingsFile}`);
       const data = await fs.readFile(this.settingsFile, 'utf8');
       this.settings = JSON.parse(data);
       
-      console.log('Settings loaded successfully');
+      console.log('[SettingsService] Settings loaded and parsed successfully');
+      console.log('[SettingsService] Settings validation:');
+      console.log('  - Token present:', !!this.settings.DiscordSettings?.Token);
+      console.log('  - Token length:', this.settings.DiscordSettings?.Token?.length || 0);
+      console.log('  - Admin IDs count:', this.settings.DiscordSettings?.AdminIDs?.length || 0);
+      console.log('  - Bot name:', this.settings.DockerSettings?.BotName || 'Not set');
+      
       return this.settings;
     } catch (error) {
-      console.error(`Error loading settings: ${error.message}`);
+      console.error(`[SettingsService] Error loading settings: ${error.message}`);
       // If settings file doesn't exist, create default settings
       if (error.code === 'ENOENT') {
+        console.log('[SettingsService] Settings file not found, creating default settings...');
         const defaultSettings = this.getDefaultSettings();
         await this.saveSettings(defaultSettings);
         this.settings = defaultSettings;
@@ -95,12 +118,13 @@ class SettingsService {
    * @returns {Promise<void>}
    */
   async saveSettings(settings) {
+    console.log('[SettingsService] Saving settings...');
     try {
       await fs.writeFile(this.settingsFile, JSON.stringify(settings, null, 2), 'utf8');
       this.settings = settings;
-      console.log('Settings saved successfully');
+      console.log('[SettingsService] Settings saved successfully');
     } catch (error) {
-      console.error(`Error saving settings: ${error.message}`);
+      console.error(`[SettingsService] Error saving settings: ${error.message}`);
       throw error;
     }
   }
