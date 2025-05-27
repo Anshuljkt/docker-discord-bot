@@ -12,7 +12,12 @@ module.exports = {
     .setDescription('Check your Docker container permissions'),
 
   async execute(interaction) {
+    console.log(`[PermissionCommand] Executing permission command for user: ${interaction.user.tag} (${interaction.user.id})`);
+    
     try {
+      // Defer reply immediately to prevent timeout
+      await interaction.deferReply({ ephemeral: true });
+      
       // Create service instances for this command execution
       const settingsService = new SettingsService();
       const dockerService = new DockerService();
@@ -79,10 +84,21 @@ module.exports = {
         }
       }
       
-      await interaction.reply({ content: responseMessage, ephemeral: true });
+      await interaction.editReply(responseMessage);
     } catch (error) {
-      console.error('Error in permission command:', error);
-      await interaction.reply({ content: 'An error occurred while processing the command.', ephemeral: true });
+      console.error('[PermissionCommand] Error in permission command:', error);
+      
+      try {
+        if (interaction.deferred) {
+          await interaction.editReply('An error occurred while processing the command.');
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: 'An error occurred while processing the command.', flags: 64 });
+        } else {
+          await interaction.followUp({ content: 'An error occurred while processing the command.', flags: 64 });
+        }
+      } catch (replyError) {
+        console.error('[PermissionCommand] Error sending error reply:', replyError);
+      }
     }
   }
 };

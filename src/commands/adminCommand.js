@@ -39,7 +39,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    console.log(`[AdminCommand] Executing admin command for user: ${interaction.user.tag} (${interaction.user.id})`);
+    
     try {
+      // Defer reply immediately to prevent timeout
+      await interaction.deferReply();
+      
       // Create a new settings service instance
       const settingsService = new SettingsService();
       
@@ -56,7 +61,7 @@ module.exports = {
           
           // Check if user is already an admin
           if (settings.DiscordSettings.AdminIDs.includes(userId)) {
-            await interaction.reply(`User ${user.tag} is already an admin.`);
+            await interaction.editReply(`User ${user.tag} is already an admin.`);
             return;
           }
           
@@ -64,7 +69,7 @@ module.exports = {
           settings.DiscordSettings.AdminIDs.push(userId);
           await settingsService.saveSettings(settings);
           
-          await interaction.reply(`Added ${user.tag} to admin list successfully.`);
+          await interaction.editReply(`Added ${user.tag} to admin list successfully.`);
           break;
         }
         
@@ -74,7 +79,7 @@ module.exports = {
           
           // Check if user is an admin
           if (!settings.DiscordSettings.AdminIDs.includes(userId)) {
-            await interaction.reply(`User ${user.tag} is not an admin.`);
+            await interaction.editReply(`User ${user.tag} is not an admin.`);
             return;
           }
           
@@ -82,13 +87,13 @@ module.exports = {
           settings.DiscordSettings.AdminIDs = settings.DiscordSettings.AdminIDs.filter(id => id !== userId);
           await settingsService.saveSettings(settings);
           
-          await interaction.reply(`Removed ${user.tag} from admin list successfully.`);
+          await interaction.editReply(`Removed ${user.tag} from admin list successfully.`);
           break;
         }
         
         case 'list': {
           if (settings.DiscordSettings.AdminIDs.length === 0) {
-            await interaction.reply('No admins are configured.');
+            await interaction.editReply('No admins are configured.');
             return;
           }
           
@@ -103,13 +108,24 @@ module.exports = {
             }
           }
           
-          await interaction.reply(`**Admin Users:**\n${adminUsers.join('\n')}`);
+          await interaction.editReply(`**Admin Users:**\n${adminUsers.join('\n')}`);
           break;
         }
       }
     } catch (error) {
-      console.error('Error in admin command:', error);
-      await interaction.reply({ content: 'An error occurred while processing the command.', ephemeral: true });
+      console.error('[AdminCommand] Error in admin command:', error);
+      
+      try {
+        if (interaction.deferred) {
+          await interaction.editReply('An error occurred while processing the command.');
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: 'An error occurred while processing the command.', flags: 64 });
+        } else {
+          await interaction.followUp({ content: 'An error occurred while processing the command.', flags: 64 });
+        }
+      } catch (replyError) {
+        console.error('[AdminCommand] Error sending error reply:', replyError);
+      }
     }
   }
 };

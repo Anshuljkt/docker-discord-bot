@@ -23,59 +23,47 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    console.log(`[DEBUG] List command executed by user: ${interaction.user.tag}`);
-    await interaction.deferReply();
+    console.log(`[ListCommand] Executing list command for user: ${interaction.user.tag} (${interaction.user.id})`);
     
     try {
-      console.log('[DEBUG] Creating service instances...');
+      // Defer reply immediately to prevent timeout
+      await interaction.deferReply();
+      
+      console.log('[ListCommand] Creating service instances...');
       // Create service instances for this command execution
       const settingsService = new SettingsService();
       const settings = await settingsService.loadSettings();
-      console.log('[DEBUG] Settings loaded successfully');
+      console.log('[ListCommand] Settings loaded successfully');
       
       const dockerService = new DockerService(settings);
-      console.log('[DEBUG] DockerService instance created');
+      console.log('[ListCommand] DockerService instance created');
       
       // Get the filter option (default to 'all' if not provided)
       const filter = interaction.options.getString('filter') || 'all';
-      console.log(`[DEBUG] Filter option: ${filter}`);
+      console.log(`[ListCommand] Filter option: ${filter}`);
       
       // Update container list
-      console.log('[DEBUG] Updating container list...');
+      console.log('[ListCommand] Updating container list...');
       await dockerService.dockerUpdate();
       const containers = await dockerService.dockerUpdate();
-      console.log(`[DEBUG] Retrieved ${containers.length} containers from Docker`);
-      
-      // Print complete container list to logs
-      console.log('[DEBUG] Complete container list:');
-      containers.forEach((container, index) => {
-        console.log(`[DEBUG] Container ${index + 1}:`, {
-          Names: container.Names,
-          State: container.State,
-          Status: container.Status,
-          Image: container.Image,
-          Id: container.Id,
-          Created: container.Created,
-          Ports: container.Ports
-        });
-      });
+      console.log(`[ListCommand] Retrieved ${containers.length} containers from Docker`);
       
       // Filter containers based on option
       let filteredContainers;
       if (filter === 'running') {
         filteredContainers = containers.filter(container => container.State === 'running');
-        console.log(`[DEBUG] Filtered to ${filteredContainers.length} running containers`);
+        console.log(`[ListCommand] Filtered to ${filteredContainers.length} running containers`);
       } else if (filter === 'stopped') {
         filteredContainers = containers.filter(container => container.State !== 'running');
-        console.log(`[DEBUG] Filtered to ${filteredContainers.length} stopped containers`);
+        console.log(`[ListCommand] Filtered to ${filteredContainers.length} stopped containers`);
       } else {
         filteredContainers = containers;
-        console.log(`[DEBUG] Showing all ${filteredContainers.length} containers`);
+        console.log(`[ListCommand] Showing all ${filteredContainers.length} containers`);
       }
 
       // Check if there are containers to display
       if (filteredContainers.length === 0) {
-        console.log(`[DEBUG] No ${filter !== 'all' ? filter : ''} containers found, sending empty response`);
+        console.log(`[ListCommand] No ${filter !== 'all' ? filter : ''} containers found, sending empty response`);
         await interaction.editReply(`No ${filter !== 'all' ? filter : ''} containers found.`);
         return;
       }
@@ -88,15 +76,15 @@ module.exports = {
           longestName = name.length;
         }
       });
-      console.log(`[DEBUG] Longest container name length: ${longestName}`);
+      console.log(`[ListCommand] Longest container name length: ${longestName}`);
 
       // Group containers in chunks to avoid message size limit
       const containerGroups = this.chunkArray(filteredContainers, settings.DockerSettings.ContainersPerMessage);
-      console.log(`[DEBUG] Split containers into ${containerGroups.length} groups (${settings.DockerSettings.ContainersPerMessage} containers per message)`);
+      console.log(`[ListCommand] Split containers into ${containerGroups.length} groups (${settings.DockerSettings.ContainersPerMessage} containers per message)`);
       
       // Create and send embeds for each group
       for (let i = 0; i < containerGroups.length; i++) {
-        console.log(`[DEBUG] Creating embed ${i + 1}/${containerGroups.length} with ${containerGroups[i].length} containers`);
+        console.log(`[ListCommand] Creating embed ${i + 1}/${containerGroups.length} with ${containerGroups[i].length} containers`);
         
         const embed = new EmbedBuilder()
           .setTitle(`Docker Container List (${filter})`)
@@ -118,19 +106,30 @@ module.exports = {
         embed.setDescription(description);
         
         if (i === 0) {
-          console.log('[DEBUG] Sending initial reply with first embed');
+          console.log('[ListCommand] Sending initial reply with first embed');
           await interaction.editReply({ embeds: [embed] });
         } else {
-          console.log(`[DEBUG] Sending follow-up message ${i + 1}`);
+          console.log(`[ListCommand] Sending follow-up message ${i + 1}`);
           await interaction.followUp({ embeds: [embed] });
         }
       }
       
-      console.log('[DEBUG] List command completed successfully');
+      console.log('[ListCommand] List command completed successfully');
     } catch (error) {
-      console.error('[DEBUG] Error in list command:', error);
-      console.error('[DEBUG] Error stack:', error.stack);
-      await interaction.editReply('An error occurred while fetching the container list.');
+      console.error('[ListCommand] Error in list command:', error);
+      console.error('[ListCommand] Error stack:', error.stack);
+      
+      try {
+        if (interaction.deferred) {
+          await interaction.editReply('An error occurred while fetching the container list.');
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: 'An error occurred while fetching the container list.', flags: 64 });
+        } else {
+          await interaction.followUp({ content: 'An error occurred while fetching the container list.', flags: 64 });
+        }
+      } catch (replyError) {
+        console.error('[ListCommand] Error sending error reply:', replyError);
+      }
     }
   },
 

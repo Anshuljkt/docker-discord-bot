@@ -71,7 +71,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    console.log(`[RoleCommand] Executing role command for user: ${interaction.user.tag} (${interaction.user.id})`);
+    
     try {
+      // Defer reply immediately to prevent timeout
+      await interaction.deferReply();
+      
       // Create service instances for this command execution
       const settingsService = new SettingsService();
       const dockerService = new DockerService();
@@ -96,14 +101,14 @@ module.exports = {
           );
           
           if (!containerExists) {
-            await interaction.reply(`Container "${container}" does not exist.`);
+            await interaction.editReply(`Container "${container}" does not exist.`);
             return;
           }
           
           // Add permission to the appropriate dictionary
           await settingsService.updateRolePermissions(role.id, container, permission, 'add');
           
-          await interaction.reply(`Added ${permission} permission for role ${role.name} on container ${container}.`);
+          await interaction.editReply(`Added ${permission} permission for role ${role.name} on container ${container}.`);
           break;
         }
         
@@ -115,7 +120,7 @@ module.exports = {
           // Remove permission from the appropriate dictionary
           await settingsService.updateRolePermissions(role.id, container, permission, 'remove');
           
-          await interaction.reply(`Removed ${permission} permission for role ${role.name} on container ${container}.`);
+          await interaction.editReply(`Removed ${permission} permission for role ${role.name} on container ${container}.`);
           break;
         }
         
@@ -140,13 +145,24 @@ module.exports = {
             }
           }
           
-          await interaction.reply(responseMessage);
+          await interaction.editReply(responseMessage);
           break;
         }
       }
     } catch (error) {
-      console.error('Error in role command:', error);
-      await interaction.reply({ content: 'An error occurred while processing the command.', ephemeral: true });
+      console.error('[RoleCommand] Error in role command:', error);
+      
+      try {
+        if (interaction.deferred) {
+          await interaction.editReply('An error occurred while processing the command.');
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: 'An error occurred while processing the command.', flags: 64 });
+        } else {
+          await interaction.followUp({ content: 'An error occurred while processing the command.', flags: 64 });
+        }
+      } catch (replyError) {
+        console.error('[RoleCommand] Error sending error reply:', replyError);
+      }
     }
   }
 };
