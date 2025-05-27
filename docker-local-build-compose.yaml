@@ -1,13 +1,9 @@
-# Docker-Compose file for DD_Bot JavaScript
-
-version: '3'
-
 services:
-  dd-bot-js:
+  docker-discord-bot:
     build:
-      context: ./dd-bot-js
+      context: ./docker-discord-bot
       dockerfile: Dockerfile
-    container_name: dd-bot-js
+    container_name: docker-discord-bot
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

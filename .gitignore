@@ -12,7 +12,10 @@ yarn.lock
 .env.development
 .env.test
 .env.production
-settings/
+
+# User settings
+settings/*
+!settings/.gitkeep
 
 # Runtime data
 pids/
@@ -29,7 +32,7 @@ coverage/
 # nyc test coverage
 .nyc_output/
 
-# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+# Grunt intermediate storage
 .grunt
 
 # node-waf configuration
@@ -59,11 +62,15 @@ jspm_packages/
 # Mac files
 .DS_Store
 
-# Docker settings (optional, if you don't want to track settings folder)
-# settings/
-
 # Editor directories and files
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Docker
+# .dockerignore
+
+# Logs
+logs/
+*.log

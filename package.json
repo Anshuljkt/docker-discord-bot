@@ -1,13 +1,13 @@
 {
-  "name": "dd-bot-js",
-  "version": "1.0.0",
+  "name": "docker-discord-bot",
+  "version": "1.0.1",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
     "lint": "eslint .",
-    "docker:build": "docker build -t dd-bot-js .",
-    "docker:run": "docker run -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/settings:/app/settings --env-file .env dd-bot-js",
+    "docker:build": "docker build -t docker-discord-bot .",
+    "docker:run": "docker run -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/settings:/app/settings --env-file .env docker-discord-bot",
     "compose:up": "cd .. && docker-compose -f docker-compose.js.yml up -d",
     "compose:down": "cd .. && docker-compose -f docker-compose.js.yml down",
     "compose:logs": "cd .. && docker-compose -f docker-compose.js.yml logs -f",

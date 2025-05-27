@@ -39,8 +39,8 @@ A Discord bot to control Docker containers, written in JavaScript with Discord.j
 You can also run the bot in Docker:
 
 ```bash
-docker build -t dd-bot-js .
-docker run -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/settings:/app/settings --env-file .env dd-bot-js
+docker build -t docker-discord-bot .
+docker run -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/settings:/app/settings --env-file .env docker-discord-bot
 ```
 
 ## Commands

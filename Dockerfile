@@ -1,24 +1,48 @@
+# Build stage
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Install build tools
+RUN apk add --no-cache python3 make g++
+
+# Copy package files for dependency installation
+COPY package*.json ./
+
+# Install all dependencies including devDependencies
+# Using npm install instead of npm ci to ensure dependencies are installed correctly
+# when package-lock.json might be out of sync
+RUN npm install
+
+# Copy source files
+COPY . .
+
+# Production stage
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install tools needed for builds
+# Install only the packages needed for production
 RUN apk add --no-cache python3 make g++
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install production dependencies only
+# Using npm install with --omit=dev instead of npm ci to handle out-of-sync package-lock.json
+RUN npm install --omit=dev
 
-# Copy the rest of the application
-COPY . .
-
-# Set environment variables
-ENV NODE_ENV=production
+# Copy built application from builder stage
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/index.js ./
+COPY --from=builder /app/test-container-states.js ./
+COPY --from=builder /app/test-docker.js ./
 
 # Create directory for settings if it doesn't exist
 RUN mkdir -p /app/settings
+
+# Set environment variables
+ENV NODE_ENV=production
 
 # Set proper permissions for the Docker socket access
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
