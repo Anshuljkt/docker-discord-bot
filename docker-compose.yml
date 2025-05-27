@@ -6,6 +6,12 @@ services:
     volumes:
       - /volume2/docker/docker-discord-bot/settings:/app/settings/:rw
       - /var/run/docker.sock:/var/run/docker.sock
+    # user: "501:20"    # Needs to run as root for now...
+    environment:
+      NODE_ENV: development
+    ports:
+      - 9229:9229
+    command: ["node", "--inspect=0.0.0.0:9229", "index.js"]
     restart: unless-stopped
     # labels:
     #   - wud.watch=true

@@ -9,4 +9,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./settings:/app/settings
     environment:
-      - NODE_ENV=production
+      NODE_ENV: development
+    ports:
+      - 9229:9229
+    command: ["node", "--inspect=0.0.0.0:9229", "index.js"]
+    # user: "501:20"    # Needs to run as root for now...

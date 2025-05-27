@@ -56,12 +56,12 @@ COPY --from=builder /app/test-docker.js ./
 
 # Create directory for settings if it doesn't exist
 RUN mkdir -p /app/settings && \
-    # Set proper permissions for the Docker socket access
-    addgroup -S appgroup && \
-    adduser -S appuser -G appgroup && \
-    chown -R appuser:appgroup /app
+    # Set proper permissions for node_modules and application directories
+    chmod -R 777 /app
 
-USER appuser
+# We don't set a specific USER here so the container can be run as any user
+# Docker socket permissions will need to be handled at runtime
+# The container will run as root by default unless specified otherwise in docker-compose.yml or docker run command
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
