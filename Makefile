@@ -4,11 +4,11 @@ IMAGE_NAME=anshuljkt1/docker-discord-bot
 VERSION_FILE=package.json
 
 # Extract version from package.json
-VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
 
 # Extra tags can be passed as: make build EXTRA_TAGS="--tag $(IMAGE_NAME):prod"
 EXTRA_TAGS ?=
-TAGS=--tag $(IMAGE_NAME):latest --tag $(IMAGE_NAME):$(VERSION) $(EXTRA_TAGS)
+TAGS=--tag $(IMAGE_NAME):latest --tag $(IMAGE_NAME):$(EXTRACTED_VERSION) $(EXTRA_TAGS)
 PLATFORMS=linux/amd64,linux/arm64
 
 .PHONY: build dev set-version release tag debug-version debug-build init-buildx init-settings clean help
@@ -20,44 +20,52 @@ debug-version:
 	@echo "Raw grep output:"
 	@grep '"version"' $(VERSION_FILE)
 	@echo "Extracted version:"
-	@echo $(VERSION)
+	@echo $(EXTRACTED_VERSION)
 
 ## Debug build configuration
 debug-build:
 	@echo "=== Build Configuration ==="
 	@echo "IMAGE_NAME: $(IMAGE_NAME)"
-	@echo "VERSION: $(VERSION)"
+	@echo "EXTRACTED_VERSION: $(EXTRACTED_VERSION)"
 	@echo "TAGS: $(TAGS)"
 
 ## Build Docker image for current platform
 build: debug-build
 	@echo "=== Starting Build ==="
-	@echo "Building version: $(VERSION)"
-	docker build -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest .
+	@echo "Building version: $(EXTRACTED_VERSION)"
+	docker build -t $(IMAGE_NAME):$(EXTRACTED_VERSION) -t $(IMAGE_NAME):latest .
 
 ## Run the development version with live reloading
 dev:
 	@echo "=== Starting Development Server ==="
 	docker-compose -f docker-local-build-compose.yaml up
 
-## Set the version in package.json
-set-version:
-	@if [ -z "$(VER)" ]; then \
-		echo "VER not specified. Usage: make set-version VER=1.2.3"; exit 1; \
-	fi
-	@echo "=== Setting Version ==="
-	@echo "Current version in file:"
+## Print the current version from package.json
+print-version:
+	@echo "Current version in $(VERSION_FILE): $(EXTRACTED_VERSION)"
 	@grep '"version"' $(VERSION_FILE)
-	@echo "Setting to version: $(VER)"
-	# macOS/BSD vs GNU sed compatibility
+
+## Update the version in package.json
+update-version:
+	@if [ -z "$(VER)" ]; then \
+		echo "❌ Error: VER not specified. Usage: make update-version VER=1.2.3"; \
+		exit 1; \
+	fi
+	@echo "Setting version to: $(VER)"
 	@if sed --version >/dev/null 2>&1; then \
 		sed -i "s/\"version\": \".*\"/\"version\": \"$(VER)\"/" $(VERSION_FILE); \
 	else \
 		sed -i '' "s/\"version\": \".*\"/\"version\": \"$(VER)\"/" $(VERSION_FILE); \
 	fi
-	@echo "New version in file:"
-	@grep '"version"' $(VERSION_FILE)
 	@echo "✅ Updated version to $(VER) in $(VERSION_FILE)"
+
+## Set or verify version for other operations
+set-version:
+	@if [ -z "$(VER)" ]; then \
+		echo "No version specified. Using current version: $(EXTRACTED_VERSION)"; \
+	else \
+		$(MAKE) update-version VER=$(VER); \
+	fi
 
 ## Initialize Docker buildx for multi-platform builds
 init-buildx:

@@ -1,7 +1,7 @@
 services:
   docker-discord-bot:
     build:
-      context: ./docker-discord-bot
+      context: .
       dockerfile: Dockerfile
     container_name: docker-discord-bot
     restart: unless-stopped
@@ -10,12 +10,3 @@ services:
       - ./settings:/app/settings
     environment:
       - NODE_ENV=production
-      - DISCORD_TOKEN=${DISCORD_TOKEN}
-      - ADMIN_ID=${ADMIN_ID}
-    env_file:
-      - .env
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"

@@ -1,52 +1,66 @@
-# Build stage
+# Three-stage build process for optimal image size
+
+# Stage 1: Dependencies
+FROM node:18-alpine AS deps
+
+WORKDIR /app
+
+# Copy only package files for dependency installation
+COPY package*.json ./
+
+# Install all dependencies including dev dependencies
+RUN apk add --no-cache python3 make g++ && \
+    npm install && \
+    # Remove build dependencies once installed
+    apk del make g++
+
+# Stage 2: Builder - for any build/compile tasks
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Install build tools
-RUN apk add --no-cache python3 make g++
-
-# Copy package files for dependency installation
+# Copy dependencies from first stage
+COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 
-# Install all dependencies including devDependencies
-# Using npm install instead of npm ci to ensure dependencies are installed correctly
-# when package-lock.json might be out of sync
-RUN npm install
-
-# Copy source files
+# Copy source code
 COPY . .
 
-# Production stage
-FROM node:18-alpine
+# If you need to build TypeScript or perform other build tasks
+# RUN npm run build
+
+# Stage 3: Production - minimal runtime
+FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Install only the packages needed for production
-RUN apk add --no-cache python3 make g++
+# Set environment variables
+ENV NODE_ENV=production
 
-# Copy package files
+# Copy package files for production
 COPY package*.json ./
 
-# Install production dependencies only
-# Using npm install with --omit=dev instead of npm ci to handle out-of-sync package-lock.json
-RUN npm install --omit=dev
+# Install only production dependencies with minimal footprint
+RUN npm install --omit=dev --no-optional --prefer-offline --no-audit && \
+    npm cache clean --force && \
+    # Remove npm to further decrease image size (it's not needed at runtime)
+    rm -rf /usr/local/lib/node_modules/npm && \
+    # Clean up unnecessary files
+    rm -rf /tmp/* /var/cache/apk/*
 
-# Copy built application from builder stage
+# Copy only necessary files from builder
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/index.js ./
 COPY --from=builder /app/test-container-states.js ./
 COPY --from=builder /app/test-docker.js ./
 
 # Create directory for settings if it doesn't exist
-RUN mkdir -p /app/settings
+RUN mkdir -p /app/settings && \
+    # Set proper permissions for the Docker socket access
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    chown -R appuser:appgroup /app
 
-# Set environment variables
-ENV NODE_ENV=production
-
-# Set proper permissions for the Docker socket access
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN chown -R appuser:appgroup /app
 USER appuser
 
 # Health check

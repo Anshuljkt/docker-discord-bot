@@ -1,6 +1,6 @@
 {
   "name": "docker-discord-bot",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -13,11 +13,19 @@
     "compose:logs": "cd .. && docker-compose -f docker-compose.js.yml logs -f",
     "register-commands": "node src/register-commands.js"
   },
-  "keywords": ["discord", "bot", "docker", "container", "management"],
+  "keywords": [
+    "discord",
+    "bot",
+    "docker",
+    "container",
+    "management"
+  ],
   "author": "Maxim Kovac (original), Anshul (JS port)",
   "license": "GPL-3.0",
   "description": "A Discord bot to control Docker containers",
   "dependencies": {
+    "@discordjs/rest": "^2.0.0",
+    "discord-api-types": "^0.37.61",
     "discord.js": "^14.19.3",
     "dockerode": "^4.0.6",
     "dotenv": "^16.5.0"
