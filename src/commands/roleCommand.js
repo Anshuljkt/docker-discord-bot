@@ -71,12 +71,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    // Defer reply IMMEDIATELY before any other operations to prevent timeout
+    await interaction.deferReply();
+    
     console.log(`[RoleCommand] Executing role command for user: ${interaction.user.tag} (${interaction.user.id})`);
     
     try {
-      // Defer reply immediately to prevent timeout
-      await interaction.deferReply();
-      
       // Create service instances for this command execution
       const settingsService = new SettingsService();
       const dockerService = new DockerService();

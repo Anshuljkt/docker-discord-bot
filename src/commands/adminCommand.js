@@ -39,12 +39,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    // Defer reply IMMEDIATELY before any other operations to prevent timeout
+    await interaction.deferReply();
+    
     console.log(`[AdminCommand] Executing admin command for user: ${interaction.user.tag} (${interaction.user.id})`);
     
     try {
-      // Defer reply immediately to prevent timeout
-      await interaction.deferReply();
-      
       // Create a new settings service instance
       const settingsService = new SettingsService();
       
