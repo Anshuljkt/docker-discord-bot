@@ -11,6 +11,7 @@ require('dotenv').config();
 const { SettingsService } = require('./src/services/settingsService');
 const { DockerService } = require('./src/services/dockerService');
 const { DiscordService } = require('./src/services/discordService');
+const healthCheck = require('./src/health-check');
 const packageJson = require('./package.json');
 
 async function main() {
@@ -43,6 +44,10 @@ async function main() {
     console.log('[MAIN] Initializing DiscordService...');
     const discordService = new DiscordService(settings, dockerService, settingsService);
     await discordService.start();
+    
+    // Initialize health check service
+    console.log('[MAIN] Initializing health check service...');
+    healthCheck.init(discordService.client, dockerService);
     
     console.log('[MAIN] ✓ Bot is running successfully!');
     

@@ -46,9 +46,10 @@ COPY --from=builder /app/test-docker.js ./
 RUN mkdir -p /app/settings && \
     chmod -R 777 /app
 
-# Health check
+# Health check configuration
+ENV HEALTH_CHECK_PORT=3021
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "try { require('http').get('http://localhost:3000/health', res => res.statusCode === 200 ? process.exit(0) : process.exit(1)); } catch (e) { process.exit(1); }"
+  CMD curl -f http://localhost:$HEALTH_CHECK_PORT/health || exit 1
 
 # Run the application
 CMD ["node", "index.js"]

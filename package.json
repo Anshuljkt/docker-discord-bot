@@ -11,7 +11,8 @@
     "compose:up": "cd .. && docker-compose -f docker-compose.js.yml up -d",
     "compose:down": "cd .. && docker-compose -f docker-compose.js.yml down",
     "compose:logs": "cd .. && docker-compose -f docker-compose.js.yml logs -f",
-    "register-commands": "node src/register-commands.js"
+    "register-commands": "node src/register-commands.js",
+    "health-check": "node check-health.js"
   },
   "keywords": [
     "discord",
