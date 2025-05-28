@@ -55,7 +55,7 @@ class DiscordService {
     }
 
     // Register event handlers
-    await this.registerEvents();
+    this.registerEvents();
   }
 
   /**
