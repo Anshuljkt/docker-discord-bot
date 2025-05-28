@@ -14,7 +14,7 @@ EXTRA_TAGS ?=
 TAGS=--tag $(IMAGE_NAME):latest --tag $(IMAGE_NAME):$(EXTRACTED_VERSION) $(EXTRA_TAGS)
 PLATFORMS=linux/amd64,linux/arm64
 
-.PHONY: build dev set-version release tag debug-version debug-build init-buildx init-settings clean help
+.PHONY: build dev set-version release tag debug-version debug-build init-buildx init-settings clean help portainer-update test-webhook webhook-debug release-and-deploy
 
 ## Debug target to show version extraction
 debug-version:
@@ -115,6 +115,81 @@ clean:
 	docker system prune -f
 	@echo "✅ Docker resources cleaned"
 
+## Trigger Portainer webhook to update a stack
+portainer-update:
+	@if [ -z "$(WEBHOOK_URL)" ]; then \
+		echo "❌ Error: WEBHOOK_URL not specified."; \
+		echo "Usage: make portainer-update WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+		exit 1; \
+	fi
+	@echo "=== Triggering Portainer Webhook ==="
+	@echo "Webhook URL: $(WEBHOOK_URL)"
+	
+	@if [ "$(DEBUG)" = "true" ]; then \
+		echo "🔍 DEBUG MODE: Not sending actual request"; \
+		echo "Would execute: curl -X POST $(WEBHOOK_URL)"; \
+		exit 0; \
+	fi
+	
+	@if [ "$(VERBOSE)" = "true" ]; then \
+		echo "🔍 Running in verbose mode"; \
+		curl -X POST "$(WEBHOOK_URL)" \
+			-H "Content-Type: application/json" \
+			-v; \
+		echo ""; \
+	else \
+		curl -X POST "$(WEBHOOK_URL)" \
+			-H "Content-Type: application/json" \
+			--fail --show-error && \
+			echo "✅ Portainer webhook triggered successfully" || \
+			echo "❌ Failed to trigger Portainer webhook"; \
+	fi
+
+## Release and update Portainer stack
+release-and-deploy: release
+	@if [ -z "$(WEBHOOK_URL)" ]; then \
+		echo "⚠️ Warning: WEBHOOK_URL not specified, skipping deployment"; \
+		echo "To update Portainer stack: make release-and-deploy WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+	else \
+		$(MAKE) portainer-update WEBHOOK_URL=$(WEBHOOK_URL); \
+	fi
+
+## Test the Portainer webhook connection without triggering actual update
+test-webhook:
+	@if [ -z "$(WEBHOOK_URL)" ]; then \
+		echo "❌ Error: WEBHOOK_URL not specified."; \
+		echo "Usage: make test-webhook WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+		exit 1; \
+	fi
+	@echo "=== Testing Portainer Webhook Connection ==="
+	@echo "Webhook URL: $(WEBHOOK_URL)"
+	@echo "Testing connectivity to Portainer..."
+	@webhook_host=$$(echo "$(WEBHOOK_URL)" | sed -E 's|https?://([^/]+)/.*|\1|'); \
+	echo "Webhook host: $$webhook_host"; \
+	curl -s -o /dev/null -w "HTTP Status: %{http_code}\nResponse time: %{time_total}s\n" \
+		"https://$$webhook_host" || echo "⚠️ Could not connect to Portainer host"
+	@echo ""
+	@echo "To trigger the webhook for real, run:"
+	@echo "  make portainer-update WEBHOOK_URL=$(WEBHOOK_URL)"
+	@echo ""
+	@echo "To see full request/response details:"
+	@echo "  make portainer-update WEBHOOK_URL=$(WEBHOOK_URL) VERBOSE=true"
+
+## Run advanced webhook debugging script
+webhook-debug:
+	@if [ -z "$(WEBHOOK_URL)" ]; then \
+		echo "❌ Error: WEBHOOK_URL not specified."; \
+		echo "Usage: make webhook-debug WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+		exit 1; \
+	fi
+	@if [ ! -f "scripts/webhook-debug.sh" ]; then \
+		echo "❌ Error: webhook-debug.sh script not found in scripts directory"; \
+		exit 1; \
+	fi
+	@echo "=== Running Advanced Webhook Debugging ==="
+	@chmod +x scripts/webhook-debug.sh
+	@scripts/webhook-debug.sh $(if $(VERBOSE),--verbose,) $(if $(DEBUG),--debug,) "$(WEBHOOK_URL)"
+
 ## Show available commands
 help:
 	@echo "=== docker-discord-bot Makefile Commands ==="
@@ -123,6 +198,16 @@ help:
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build                    # Build for current platform"
-	@echo "  make set-version VER=1.2.3  # Update version in package.json"
-	@echo "  make release VER=1.2.3      # Build and push a new release"
+	@echo "  make set-version VER=1.2.3    # Update version in package.json"
+	@echo "  make release VER=1.2.3        # Build and push a new release"
 	@echo "  make dev                      # Start development server with docker-compose"
+	@echo ""
+	@echo "  # Portainer webhook commands:"
+	@echo "  make portainer-update WEBHOOK_URL=https://...   # Trigger Portainer webhook"
+	@echo "  make test-webhook WEBHOOK_URL=https://...        # Test basic webhook connectivity"
+	@echo "  make webhook-debug WEBHOOK_URL=https://...       # Advanced webhook debugging"
+	@echo "  make portainer-update WEBHOOK_URL=https://... VERBOSE=true   # Show detailed request/response"
+	@echo "  make portainer-update WEBHOOK_URL=https://... DEBUG=true     # Dry-run without sending request"
+	@echo "  make release-and-deploy VER=1.2.3 WEBHOOK_URL=https://...    # Release and update Portainer"
+	@echo "  make test-webhook WEBHOOK_URL=https://...   # Test Portainer webhook connection"
+	@echo "  make webhook-debug WEBHOOK_URL=https://...   # Run advanced webhook debugging script"

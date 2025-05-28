@@ -61,8 +61,8 @@ module.exports = {
       // Check if there are containers to display
       if (filteredContainers.length === 0) {
         console.log(`[ListCommand] No ${filter !== 'all' ? filter : ''} containers found, sending empty response`);
-        await interaction.editReply(`No ${filter !== 'all' ? filter : ''} containers found.`);
-        return true;
+        return interaction.editReply(`No ${filter !== 'all' ? filter : ''} containers found.`);
+        // return true;
       }
 
       // Find the longest container name for formatting

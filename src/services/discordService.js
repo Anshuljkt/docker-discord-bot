@@ -40,22 +40,26 @@ class DiscordService {
     console.log('[DiscordService] Node.js version:', process.version);
     
     // Load commands
-    await this.loadCommands();
+    this.loadCommands();
     
     // Log in
     try {
       console.log('[DiscordService] Attempting to log into Discord...');
       console.log('[DiscordService] Bot token length:', this.settings.DiscordSettings.Token ? this.settings.DiscordSettings.Token.length : 'UNDEFINED');
+      
       await this.client.login(this.settings.DiscordSettings.Token);
       console.log(`[DiscordService] Bot logged in successfully as ${this.client.user.tag}`);
-    } catch (error) {
+    } 
+    catch (error) {
       console.error(`[DiscordService] CRITICAL: Error logging in: ${error.message}`);
       console.error(`[DiscordService] Error details:`, error);
       process.exit(1);
     }
 
-    // Register event handlers
-    this.registerEvents();
+    await this.registerSlashCommands();
+
+    // Register event handlers (aka listeners)
+    await this.registerEvents();
   }
 
   /**
@@ -73,22 +77,24 @@ class DiscordService {
       this.client.guilds.cache.forEach(guild => {
         console.log(`[DiscordService] Guild: ${guild.name} (${guild.id}) - ${guild.memberCount} members`);
       });
-      
-      await this.registerSlashCommands();
     });
 
     this.client.on(Events.InteractionCreate, async interaction => {
       await interaction.deferReply();
-      console.log(`[DiscordService] Interaction received:`, {
-        type: interaction.type,
-        commandName: interaction.commandName || 'N/A',
-        user: interaction.user?.tag || 'Unknown',
-        userId: interaction.user?.id || 'Unknown',
-        guildId: interaction.guildId || 'DM',
-        channelId: interaction.channelId || 'Unknown',
-        isCommand: interaction.isCommand(),
-        timestamp: new Date().toISOString()
-      });
+      
+      // print full interaction details object:
+      console.log(`[DiscordService] Interaction received, message deferred:\n\n`, interaction.toJSON());
+    
+      // console.log(`[DiscordService] Interaction received, message deferred:`, {
+      //   type: interaction.type,
+      //   commandName: interaction.commandName || 'N/A',
+      //   user: interaction.user?.tag || 'Unknown',
+      //   userId: interaction.user?.id || 'Unknown',
+      //   guildId: interaction.guildId || 'DM',
+      //   channelId: interaction.channelId || 'Unknown',
+      //   isCommand: interaction.isCommand(),
+      //   timestamp: new Date().toISOString()
+      // });
 
       if (!interaction.isCommand()) {
         console.log(`[DiscordService] Non-command interaction ignored (type: ${interaction.type})`);
@@ -189,12 +195,13 @@ class DiscordService {
     });
 
     console.log('[DiscordService] Event handlers registered');
+    return true;
   }
 
   /**
    * Load command files from the commands directory
    */
-  async loadCommands() {
+  loadCommands() {
     console.log('[DiscordService] Loading commands...');
     const commandsPath = path.join(__dirname, '../commands');
     console.log('[DiscordService] Commands path:', commandsPath);
@@ -308,6 +315,7 @@ class DiscordService {
         console.error('[DiscordService] Raw error:', error.rawError);
       }
     }
+    return true;
   }
 
   /**

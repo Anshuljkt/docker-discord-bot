@@ -43,12 +43,15 @@ async function main() {
     
     console.log('[MAIN] Initializing DiscordService...');
     const discordService = new DiscordService(settings, dockerService, settingsService);
-    await discordService.start();
     
     // Initialize health check service
     console.log('[MAIN] Initializing health check service...');
     healthCheck.init(discordService.client, dockerService);
     
+    // Start the Discord bot
+    console.log('[MAIN] Starting docker-disco-bot...');
+    discordService.start();
+
     console.log('[MAIN] ✓ Bot is running successfully!');
     
     // Set up graceful shutdown
