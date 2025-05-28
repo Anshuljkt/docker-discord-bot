@@ -1,6 +1,6 @@
 /**
  * Health check service for the Docker Discord Bot
- * 
+ *
  * This provides an HTTP endpoint to check the health of various components:
  * - Discord connection status
  * - Docker socket connectivity
@@ -39,13 +39,13 @@ function init(client, docker) {
  */
 function startServer() {
   const server = http.createServer(handleRequest);
-  
+
   server.listen(PORT, () => {
     console.log(`[HealthCheck] Health check service running on port ${PORT}`);
   });
-  
+
   server.on('error', (err) => {
-    console.error(`[HealthCheck] Server error:`, err);
+    console.error('[HealthCheck] Server error:', err);
   });
 }
 
@@ -54,11 +54,11 @@ function startServer() {
  */
 async function handleRequest(req, res) {
   console.log(`[HealthCheck] Received health check request from ${req.socket.remoteAddress}`);
-  
+
   if (req.url === '/health') {
     try {
       const health = await checkHealth();
-      
+
       // Set appropriate status code
       if (health.status === 'healthy') {
         res.statusCode = 200;
@@ -67,18 +67,18 @@ async function handleRequest(req, res) {
       } else {
         res.statusCode = 500;
       }
-      
+
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(health, null, 2));
-      
+
     } catch (error) {
-      console.error(`[HealthCheck] Error during health check:`, error);
+      console.error('[HealthCheck] Error during health check:', error);
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ 
+      res.end(JSON.stringify({
         status: 'unhealthy',
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }));
     }
   } else {
@@ -105,32 +105,32 @@ async function checkHealth() {
       memory: {
         total: Math.round(os.totalmem() / 1024 / 1024) + 'MB',
         free: Math.round(os.freemem() / 1024 / 1024) + 'MB',
-        usage: Math.round((1 - os.freemem() / os.totalmem()) * 100) + '%'
+        usage: Math.round((1 - os.freemem() / os.totalmem()) * 100) + '%',
       },
-      cpuUsage: process.cpuUsage()
+      cpuUsage: process.cpuUsage(),
     },
     services: {
       discord: { status: 'unknown' },
-      docker: { status: 'unknown' }
-    }
+      docker: { status: 'unknown' },
+    },
   };
-  
+
   // Check Discord connection
   if (discordClient) {
     try {
       health.services.discord = {
         status: discordClient.isReady() ? 'connected' : 'disconnected',
         ping: discordClient.ws.ping + 'ms',
-        guilds: discordClient.guilds?.cache?.size || 0
+        guilds: discordClient.guilds?.cache?.size || 0,
       };
-      
+
       if (health.services.discord.status !== 'connected') {
         health.status = 'degraded';
       }
     } catch (error) {
       health.services.discord = {
         status: 'error',
-        error: error.message
+        error: error.message,
       };
       health.status = 'degraded';
     }
@@ -138,14 +138,14 @@ async function checkHealth() {
     health.services.discord = { status: 'not_initialized' };
     health.status = 'degraded';
   }
-  
+
   // Check Docker connectivity
   try {
     if (dockerService) {
       const containers = await dockerService.dockerUpdate();
       health.services.docker = {
         status: 'connected',
-        containers: containers?.length || 0
+        containers: containers?.length || 0,
       };
     } else {
       // Fallback: Try a simple Docker command if service isn't available
@@ -155,22 +155,22 @@ async function checkHealth() {
   } catch (error) {
     health.services.docker = {
       status: 'error',
-      error: error.message
+      error: error.message,
     };
     health.status = 'degraded';
   }
-  
+
   // Check for critical memory usage (>90%)
   if (os.freemem() / os.totalmem() < 0.1) {
     health.status = 'degraded';
     health.system.memory.warning = 'Critical memory usage detected';
   }
-  
+
   return health;
 }
 
 module.exports = {
   init,
   startServer,
-  checkHealth
+  checkHealth,
 };

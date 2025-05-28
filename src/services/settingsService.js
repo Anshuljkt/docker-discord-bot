@@ -7,7 +7,6 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 
-
 class SettingsService {
   constructor() {
     console.log('[SettingsService] Initializing settings service...');
@@ -47,36 +46,36 @@ class SettingsService {
   getDefaultSettings() {
     console.log('[SettingsService] Generating default settings...');
     const defaultSettings = {
-      "LanguageSettings": {
-        "Language": "en"
+      'LanguageSettings': {
+        'Language': 'en',
       },
-      "DiscordSettings": {
-        "Token": process.env.DISCORD_TOKEN || "<- Paste Your Discord Bot Token here! ->",
-        "AdminIDs": [
-          "123456789012345678", // Replace with actual admin IDs
-          "876543210987654321" // Another example admin ID
+      'DiscordSettings': {
+        'Token': process.env.DISCORD_TOKEN || '<- Paste Your Discord Bot Token here! ->',
+        'AdminIDs': [
+          '123456789012345678', // Replace with actual admin IDs
+          '876543210987654321', // Another example admin ID
         ],
-        "GuildIDs": [
-          "123456789012345678", // Replace with actual guild (channel) IDs to enable commands on
-          "876543210987654321" // Another example guild ID
+        'GuildIDs': [
+          '123456789012345678', // Replace with actual guild (channel) IDs to enable commands on
+          '876543210987654321', // Another example guild ID
         ],
-        "UserWhitelist": true,
-        "UserIDs": [],
-        "UsersCanStopContainers": false,
-        "AllowedContainers": [],
-        "RoleStartPermissions": {},
-        "RoleStopPermissions": {},
-        "UserStartPermissions": {},
-        "UserStopPermissions": {}
+        'UserWhitelist': true,
+        'UserIDs': [],
+        'UsersCanStopContainers': false,
+        'AllowedContainers': [],
+        'RoleStartPermissions': {},
+        'RoleStopPermissions': {},
+        'UserStartPermissions': {},
+        'UserStopPermissions': {},
       },
-      "DockerSettings": {
-        "BotName": "dd-bot",
-        "Retries": 12,
-        "TimeBeforeRetry": 5,
-        "ContainersPerMessage": 100
-      }
+      'DockerSettings': {
+        'BotName': 'dd-bot',
+        'Retries': 12,
+        'TimeBeforeRetry': 5,
+        'ContainersPerMessage': 100,
+      },
     };
-    
+
     console.log('[SettingsService] Default token from env:', !!process.env.DISCORD_TOKEN);
     return defaultSettings;
   }
@@ -92,18 +91,18 @@ class SettingsService {
         console.log('[SettingsService] Settings already cached, returning cached version');
         return this.settings;
       }
-      
+
       console.log(`[SettingsService] Reading settings from: ${this.settingsFile}`);
       const data = await fs.readFile(this.settingsFile, 'utf8');
       this.settings = JSON.parse(data);
-      
+
       console.log('[SettingsService] Settings loaded and parsed successfully');
       console.log('[SettingsService] Settings validation:');
       console.log('  - Token present:', !!this.settings.DiscordSettings?.Token);
       console.log('  - Token length:', this.settings.DiscordSettings?.Token?.length || 0);
       console.log('  - Admin IDs count:', this.settings.DiscordSettings?.AdminIDs?.length || 0);
       console.log('  - Bot name:', this.settings.DockerSettings?.BotName || 'Not set');
-      
+
       return this.settings;
     } catch (error) {
       console.error(`[SettingsService] Error loading settings: ${error.message}`);
@@ -146,14 +145,14 @@ class SettingsService {
    */
   async updateUserPermissions(userId, container, permission, action) {
     const settings = await this.loadSettings();
-    
+
     // Select the appropriate permissions dictionary
     const permKey = permission === 'start' ? 'UserStartPermissions' : 'UserStopPermissions';
-    
+
     if (!settings.DiscordSettings[permKey][userId]) {
       settings.DiscordSettings[permKey][userId] = [];
     }
-    
+
     if (action === 'add') {
       // Add permission if it doesn't exist
       if (!settings.DiscordSettings[permKey][userId].includes(container)) {
@@ -162,13 +161,13 @@ class SettingsService {
     } else if (action === 'remove') {
       // Remove permission if it exists
       settings.DiscordSettings[permKey][userId] = settings.DiscordSettings[permKey][userId].filter(c => c !== container);
-      
+
       // Clean up empty arrays
       if (settings.DiscordSettings[permKey][userId].length === 0) {
         delete settings.DiscordSettings[permKey][userId];
       }
     }
-    
+
     await this.saveSettings(settings);
   }
 
@@ -182,14 +181,14 @@ class SettingsService {
    */
   async updateRolePermissions(roleId, container, permission, action) {
     const settings = await this.loadSettings();
-    
+
     // Select the appropriate permissions dictionary
     const permKey = permission === 'start' ? 'RoleStartPermissions' : 'RoleStopPermissions';
-    
+
     if (!settings.DiscordSettings[permKey][roleId]) {
       settings.DiscordSettings[permKey][roleId] = [];
     }
-    
+
     if (action === 'add') {
       // Add permission if it doesn't exist
       if (!settings.DiscordSettings[permKey][roleId].includes(container)) {
@@ -198,13 +197,13 @@ class SettingsService {
     } else if (action === 'remove') {
       // Remove permission if it exists
       settings.DiscordSettings[permKey][roleId] = settings.DiscordSettings[permKey][roleId].filter(c => c !== container);
-      
+
       // Clean up empty arrays
       if (settings.DiscordSettings[permKey][roleId].length === 0) {
         delete settings.DiscordSettings[permKey][roleId];
       }
     }
-    
+
     await this.saveSettings(settings);
   }
 }
