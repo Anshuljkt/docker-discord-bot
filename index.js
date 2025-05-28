@@ -72,7 +72,7 @@ async function main() {
 
         // Start the Discord bot
     console.log('[MAIN] Starting docker-disco-bot...');
-    discordService.start();
+    await discordService.start();
 
     console.log('[MAIN] ✓ Bot is running successfully!');
     
