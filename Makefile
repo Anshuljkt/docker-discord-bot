@@ -115,31 +115,51 @@ clean:
 	docker system prune -f
 	@echo "✅ Docker resources cleaned"
 
+# Include environment variables from .env file if it exists
+-include .env
+export
+
 ## Trigger Portainer webhook to update a stack
 portainer-update:
-	@if [ -z "$(WEBHOOK_URL)" ]; then \
-		echo "❌ Error: WEBHOOK_URL not specified."; \
-		echo "Usage: make portainer-update WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+	@if [ ! -f ".env" ]; then \
+		echo "❌ Error: .env file not found"; \
+		exit 1; \
+	fi
+	@echo "=== Loading environment variables ==="
+	@if [ -z "$$WEBHOOK_URL" ]; then \
+		echo "❌ Error: WEBHOOK_URL not found in .env file"; \
+		exit 1; \
+	fi
+	@if [ -z "$$CF_ACCESS_CLIENT_ID" ]; then \
+		echo "❌ Error: CF_ACCESS_CLIENT_ID not found in .env file"; \
+		exit 1; \
+	fi
+	@if [ -z "$$CF_ACCESS_CLIENT_SECRET" ]; then \
+		echo "❌ Error: CF_ACCESS_CLIENT_SECRET not found in .env file"; \
 		exit 1; \
 	fi
 	@echo "=== Triggering Portainer Webhook ==="
-	@echo "Webhook URL: $(WEBHOOK_URL)"
+	@echo "Webhook URL: $$WEBHOOK_URL"
 	
 	@if [ "$(DEBUG)" = "true" ]; then \
 		echo "🔍 DEBUG MODE: Not sending actual request"; \
-		echo "Would execute: curl -X POST $(WEBHOOK_URL)"; \
+		echo "Would execute: curl -X POST $$WEBHOOK_URL -H \"CF-Access-Client-Id: $$CF_ACCESS_CLIENT_ID\" -H \"CF-Access-Client-Secret: $$CF_ACCESS_CLIENT_SECRET\""; \
 		exit 0; \
 	fi
 	
 	@if [ "$(VERBOSE)" = "true" ]; then \
 		echo "🔍 Running in verbose mode"; \
-		curl -X POST "$(WEBHOOK_URL)" \
+		curl -X POST "$$WEBHOOK_URL" \
 			-H "Content-Type: application/json" \
+			-H "CF-Access-Client-Id: $$CF_ACCESS_CLIENT_ID" \
+			-H "CF-Access-Client-Secret: $$CF_ACCESS_CLIENT_SECRET" \
 			-v; \
 		echo ""; \
 	else \
-		curl -X POST "$(WEBHOOK_URL)" \
+		curl -X POST "$$WEBHOOK_URL" \
 			-H "Content-Type: application/json" \
+			-H "CF-Access-Client-Id: $$CF_ACCESS_CLIENT_ID" \
+			-H "CF-Access-Client-Secret: $$CF_ACCESS_CLIENT_SECRET" \
 			--fail --show-error && \
 			echo "✅ Portainer webhook triggered successfully" || \
 			echo "❌ Failed to trigger Portainer webhook"; \

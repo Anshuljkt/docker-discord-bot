@@ -21,9 +21,10 @@ class DiscordService {
       ],
     });
 
+    // Attach services to client for command access
     this.settings = settings;
-    this.dockerService = dockerService || new DockerService(settings);
-    this.settingsService = settingsService || new SettingsService();
+    this.client.dockerService = dockerService || new DockerService(settings);
+    this.client.settingsService = settingsService || new SettingsService();
 
     this.commands = new Collection();
     this.commandsData = [];
@@ -81,51 +82,44 @@ class DiscordService {
     });
 
     this.client.on(Events.InteractionCreate, async interaction => {
-      await interaction.deferReply();
-
-      // print full interaction details object:
-      console.log('[DiscordService] Interaction received, message deferred:\n\n', interaction.toJSON());
-
-      // console.log(`[DiscordService] Interaction received, message deferred:`, {
-      //   type: interaction.type,
-      //   commandName: interaction.commandName || 'N/A',
-      //   user: interaction.user?.tag || 'Unknown',
-      //   userId: interaction.user?.id || 'Unknown',
-      //   guildId: interaction.guildId || 'DM',
-      //   channelId: interaction.channelId || 'Unknown',
-      //   isCommand: interaction.isCommand(),
-      //   timestamp: new Date().toISOString()
-      // });
-
       if (!interaction.isCommand()) {
         console.log(`[DiscordService] Non-command interaction ignored (type: ${interaction.type})`);
         return;
       }
 
+      // Defer the reply immediately and ensure it completes
+      try {
+        await interaction.deferReply();
+        console.log('[DiscordService] Interaction received, message deferred:\n\n', interaction.toJSON());
+        //   console.log(`[DiscordService] Interaction received, message deferred:`, {
+        //   type: interaction.type,
+        //   commandName: interaction.commandName || 'N/A',
+        //   user: interaction.user?.tag || 'Unknown',
+        //   userId: interaction.user?.id || 'Unknown',
+        //   guildId: interaction.guildId || 'DM',
+        //   channelId: interaction.channelId || 'Unknown',
+        //   isCommand: interaction.isCommand(),
+        //   timestamp: new Date().toISOString()
+      //   });
+      } catch (deferError) {
+        console.error('[DiscordService] Error deferring reply:', deferError);
+        try {
+          await interaction.reply({ content: 'Error processing command. Please try again.', ephemeral: true });
+        } catch (replyError) {
+          console.error('[DiscordService] Error sending error reply:', replyError);
+        }
+        return;
+      }
+
       const command = this.commands.get(interaction.commandName);
       if (!command) {
-        console.error(`[DiscordService] UNKNOWN INTERACTION: Command "${interaction.commandName}" not found in registered commands`);
-        console.error('[DiscordService] Available commands:', Array.from(this.commands.keys()));
-        console.error('[DiscordService] Interaction details:', {
-          commandName: interaction.commandName,
-          options: interaction.options?.data || [],
-          user: interaction.user.tag,
-          guild: interaction.guild?.name || 'DM',
-        });
-
+        console.error(`[DiscordService] UNKNOWN INTERACTION: Command "${interaction.commandName}" not found`);
         try {
-          // Handle unknown command - make sure we respond quickly
-          if (!interaction.replied && !interaction.deferred) {
-            console.log(`[DiscordService] Responding to unknown command: ${interaction.commandName}`);
-            await interaction.reply({
-              content: `Unknown command: ${interaction.commandName}. This might be a registration issue.`,
-              ephemeral: true,
-            });
-            console.log('[DiscordService] Response sent for unknown command');
-          }
+          await interaction.editReply({
+            content: `Unknown command: ${interaction.commandName}. This might be a registration issue.`,
+          });
         } catch (replyError) {
           console.error('[DiscordService] Error replying to unknown command:', replyError);
-          console.error('[DiscordService] Error details:', replyError.message);
         }
         return;
       }
@@ -138,8 +132,8 @@ class DiscordService {
 
         console.log(`[DiscordService] Starting execution of command "${interaction.commandName}"...`);
         const success = await command.execute(interaction);
-
         const executionTime = Date.now() - startTime;
+
         console.log(`[DiscordService] Command "${interaction.commandName}" completed in ${executionTime}ms with result: ${success ? 'success' : 'failure'}`);
 
         if (executionTime > 2000) {
@@ -147,34 +141,14 @@ class DiscordService {
         }
       } catch (error) {
         console.error(`[DiscordService] ERROR executing command ${interaction.commandName}:`, error);
-        console.error(`[DiscordService] Error message: ${error.message}`);
-        console.error('[DiscordService] Error stack:', error.stack);
-
-        if (error.code) {
-          console.error(`[DiscordService] Error code: ${error.code}`);
-        }
 
         try {
-          console.log(`[DiscordService] Checking interaction state - deferred: ${interaction.deferred}, replied: ${interaction.replied}`);
-
-          if (interaction.replied || interaction.deferred) {
-            console.log('[DiscordService] Sending followUp for command error...');
-            await interaction.followUp({
-              content: `Error executing command: ${error.message || 'Unknown error'}`,
-              ephemeral: true,
-            });
-            console.log('[DiscordService] FollowUp sent successfully');
-          } else {
-            console.log('[DiscordService] Sending reply for command error...');
-            await interaction.reply({
-              content: `Error executing command: ${error.message || 'Unknown error'}`,
-              ephemeral: true,
-            });
-            console.log('[DiscordService] Reply sent successfully');
-          }
+          // Always use editReply since we've already deferred
+          await interaction.editReply({
+            content: `Error executing command: ${error.message || 'Unknown error'}`,
+          });
         } catch (replyError) {
           console.error('[DiscordService] Error sending error reply:', replyError);
-          console.error(`[DiscordService] Reply error message: ${replyError.message}`);
         }
       }
     });
