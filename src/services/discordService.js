@@ -89,8 +89,8 @@ class DiscordService {
 
       // Defer the reply immediately and ensure it completes
       try {
-        await interaction.deferReply();
-        console.log('[DiscordService] Interaction received, message deferred:\n\n', interaction.toJSON());
+        await interaction.reply('Thinking!');
+        console.log('[DiscordService] Interaction received, message replied:\n\n', interaction.toJSON());
         //   console.log(`[DiscordService] Interaction received, message deferred:`, {
         //   type: interaction.type,
         //   commandName: interaction.commandName || 'N/A',
@@ -131,10 +131,14 @@ class DiscordService {
         const startTime = Date.now();
 
         console.log(`[DiscordService] Starting execution of command "${interaction.commandName}"...`);
-        const success = await command.execute(interaction);
+        // const success = await command.execute(interaction);
+
+        const success = true;
         const executionTime = Date.now() - startTime;
 
         console.log(`[DiscordService] Command "${interaction.commandName}" completed in ${executionTime}ms with result: ${success ? 'success' : 'failure'}`);
+
+        await interaction.followUp('testFollowup');
 
         if (executionTime > 2000) {
           console.warn(`[DiscordService] WARNING: Command "${interaction.commandName}" took ${executionTime}ms to execute, which may block the gateway task.`);

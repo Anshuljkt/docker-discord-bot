@@ -166,13 +166,16 @@ portainer-update:
 	fi
 
 ## Release and update Portainer stack
-release-and-deploy: release
-	@if [ -z "$(WEBHOOK_URL)" ]; then \
-		echo "⚠️ Warning: WEBHOOK_URL not specified, skipping deployment"; \
-		echo "To update Portainer stack: make release-and-deploy WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
-	else \
-		$(MAKE) portainer-update WEBHOOK_URL=$(WEBHOOK_URL); \
-	fi
+# release-and-deploy: release
+# 	@if [ -z "$(WEBHOOK_URL)" ]; then \
+# 		echo "⚠️ Warning: WEBHOOK_URL not specified, skipping deployment"; \
+# 		echo "To update Portainer stack: make release-and-deploy WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+# 	else \
+# 		$(MAKE) portainer-update \
+# 	fi
+
+release-port: release portainer-update
+
 
 ## Test the Portainer webhook connection without triggering actual update
 test-webhook:
