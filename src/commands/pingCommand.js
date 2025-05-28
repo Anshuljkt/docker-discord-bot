@@ -19,10 +19,10 @@ module.exports = {
     try {
       // Reply with a defer
       console.log(`[PingCommand] Deferring reply...`);
-      interaction.deferReply();
+      await interaction.deferReply();
       
       // Sleep for 4 seconds to simulate processing time
-      // console.log(`[PingCommand] Simulating processing delay...`);
+      //console.log(`[PingCommand] Simulating processing delay...`);
       // await new Promise(resolve => setTimeout(resolve, 4000));
       const responseTime = Date.now() - startTime;
       const apiLatency = interaction.client.ws.ping;

@@ -1,5 +1,6 @@
 services:
   docker-discord-bot:
+    # image: anshuljkt1/docker-discord-bot:1.2.3-beta11
     build:
       context: .
       dockerfile: Dockerfile

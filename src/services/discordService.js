@@ -260,9 +260,9 @@ class DiscordService {
         for (const guildId of guildIds) {
           console.log(`[DiscordService] Registering commands for guild ${guildId}...`);
           try {
-            // rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: [] })
-            //   .then(() => console.log('Successfully deleted all guild commands.'))
-            //   .catch(console.error);
+            rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: [] })
+              .then(() => console.log('Successfully deleted all guild commands.'))
+              .catch(console.error);
 
             const guildData = await rest.put(
               Routes.applicationGuildCommands(this.client.user.id, guildId),
