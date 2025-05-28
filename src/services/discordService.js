@@ -60,6 +60,8 @@ class DiscordService {
 
     // Register event handlers (aka listeners)
     await this.registerEvents();
+    
+    return true;
   }
 
   /**

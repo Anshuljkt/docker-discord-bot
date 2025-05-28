@@ -48,12 +48,6 @@ async function main() {
     console.log('[MAIN] Initializing health check service...');
     healthCheck.init(discordService.client, dockerService);
     
-    // Start the Discord bot
-    console.log('[MAIN] Starting docker-disco-bot...');
-    discordService.start();
-
-    console.log('[MAIN] ✓ Bot is running successfully!');
-    
     // Set up graceful shutdown
     process.on('SIGINT', () => {
       console.log('[MAIN] Received SIGINT, shutting down gracefully...');
@@ -75,6 +69,12 @@ async function main() {
       console.error('[MAIN] Uncaught Exception:', error);
       process.exit(1);
     });
+
+        // Start the Discord bot
+    console.log('[MAIN] Starting docker-disco-bot...');
+    discordService.start();
+
+    console.log('[MAIN] ✓ Bot is running successfully!');
     
   } catch (error) {
     console.error('[MAIN] CRITICAL: Error starting the bot:', error);
