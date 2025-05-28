@@ -35,6 +35,8 @@ module.exports = {
       await interaction.editReply(`Pong! Response time: ${responseTime}ms, API latency: ${apiLatency}ms`);
       console.log(`[PingCommand] Ping command completed successfully`);
       
+      return true;
+      
     } catch (error) {
       console.error(`[PingCommand] Error executing ping command:`, error);
       console.error(`[PingCommand] Error stack:`, error.stack);
@@ -50,6 +52,8 @@ module.exports = {
       } catch (replyError) {
         console.error(`[PingCommand] Error sending error reply:`, replyError);
       }
+      
+      return false;
     }
   }
 };

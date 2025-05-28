@@ -70,6 +70,7 @@ module.exports = {
           await settingsService.saveSettings(settings);
           
           await interaction.editReply(`Added ${user.tag} to admin list successfully.`);
+          return true;
           break;
         }
         
@@ -88,6 +89,7 @@ module.exports = {
           await settingsService.saveSettings(settings);
           
           await interaction.editReply(`Removed ${user.tag} from admin list successfully.`);
+          return true;
           break;
         }
         
@@ -109,6 +111,7 @@ module.exports = {
           }
           
           await interaction.editReply(`**Admin Users:**\n${adminUsers.join('\n')}`);
+          return true;
           break;
         }
       }
@@ -126,6 +129,8 @@ module.exports = {
       } catch (replyError) {
         console.error('[AdminCommand] Error sending error reply:', replyError);
       }
+      return false;
     }
+    return true;
   }
 };

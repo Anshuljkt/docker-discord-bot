@@ -115,6 +115,7 @@ module.exports = {
       }
       
       console.log('[ListCommand] List command completed successfully');
+      return true;
     } catch (error) {
       console.error('[ListCommand] Error in list command:', error);
       console.error('[ListCommand] Error stack:', error.stack);
@@ -130,6 +131,7 @@ module.exports = {
       } catch (replyError) {
         console.error('[ListCommand] Error sending error reply:', replyError);
       }
+      return false;
     }
   },
 

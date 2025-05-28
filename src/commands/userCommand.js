@@ -163,6 +163,8 @@ module.exports = {
       } catch (replyError) {
         console.error('[UserCommand] Error sending error reply:', replyError);
       }
+      return false;
     }
+    return true;
   }
 };

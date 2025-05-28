@@ -163,6 +163,8 @@ module.exports = {
       } catch (replyError) {
         console.error('[RoleCommand] Error sending error reply:', replyError);
       }
+      return false;
     }
+    return true;
   }
 };

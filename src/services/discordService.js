@@ -129,10 +129,10 @@ class DiscordService {
         const startTime = Date.now();
         
         console.log(`[DiscordService] Starting execution of command "${interaction.commandName}"...`);
-        await command.execute(interaction);
+        const success = await command.execute(interaction);
         
         const executionTime = Date.now() - startTime;
-        console.log(`[DiscordService] Command "${interaction.commandName}" completed in ${executionTime}ms`);
+        console.log(`[DiscordService] Command "${interaction.commandName}" completed in ${executionTime}ms with result: ${success ? 'success' : 'failure'}`);
         
         if (executionTime > 2000) {
           console.warn(`[DiscordService] WARNING: Command "${interaction.commandName}" took ${executionTime}ms to execute, which may block the gateway task.`);
