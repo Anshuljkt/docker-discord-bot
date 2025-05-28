@@ -12,9 +12,6 @@ module.exports = {
     .setDescription('Check your Docker container permissions'),
 
   async execute(interaction) {
-    // Defer reply IMMEDIATELY before any other operations to prevent timeout
-    await interaction.deferReply({ ephemeral: true });
-    
     console.log(`[PermissionCommand] Executing permission command for user: ${interaction.user.tag} (${interaction.user.id})`);
     
     try {

@@ -51,8 +51,15 @@ class SettingsService {
         "Language": "en"
       },
       "DiscordSettings": {
-        "Token": process.env.DISCORD_TOKEN || "<- Please Insert Token here! ->",
-        "AdminIDs": ["<- Your Discord User ID for Admin Privileges! Can be a list of strings also. ->"],
+        "Token": process.env.DISCORD_TOKEN || "<- Paste Your Discord Bot Token here! ->",
+        "AdminIDs": [
+          "123456789012345678", // Replace with actual admin IDs
+          "876543210987654321" // Another example admin ID
+        ],
+        "GuildIDs": [
+          "123456789012345678", // Replace with actual guild (channel) IDs to enable commands on
+          "876543210987654321" // Another example guild ID
+        ],
         "UserWhitelist": true,
         "UserIDs": [],
         "UsersCanStopContainers": false,
@@ -63,10 +70,10 @@ class SettingsService {
         "UserStopPermissions": {}
       },
       "DockerSettings": {
-        "BotName": "docker-discord-bot",
+        "BotName": "dd-bot",
         "Retries": 12,
         "TimeBeforeRetry": 5,
-        "ContainersPerMessage": 30
+        "ContainersPerMessage": 100
       }
     };
     

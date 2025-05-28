@@ -37,9 +37,6 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // Defer reply IMMEDIATELY before any other operations to prevent timeout
-    await interaction.deferReply();
-    
     console.log(`[DockerCommand] Executing docker command for user: ${interaction.user.tag} (${interaction.user.id})`);
     
     try {
@@ -68,7 +65,7 @@ module.exports = {
       if (!await this.checkAuthorization(interaction, command, dockerName)) {
         console.log('[DockerCommand] Authorization failed');
         await interaction.editReply('You are not allowed to use this command');
-        return;
+        return false;
       }
       console.log('[DockerCommand] Authorization passed');
 
@@ -81,7 +78,7 @@ module.exports = {
       if (!docker) {
         console.log(`[DockerCommand] Container '${dockerName}' not found`);
         await interaction.editReply('Container doesn\'t exist!');
-        return;
+        return false;
       }
 
       const dockerId = docker.Id;
@@ -93,12 +90,12 @@ module.exports = {
       
       if (command === 'start' && isRunning) {
         await interaction.editReply(`${dockerName} is already running`);
-        return;
+        return true;
       }
       
       if ((command === 'stop' || command === 'restart') && !isRunning) {
         await interaction.editReply(`${dockerName} is already stopped`);
-        return;
+        return true;
       }
 
       // Handle the jfFix command separately with non-blocking execution
@@ -117,7 +114,7 @@ module.exports = {
             interaction.followUp(`Error during JF Fix: ${error.message}`);
           });
         
-        return;
+        return true;
       }
 
       // Execute the command
@@ -136,12 +133,12 @@ module.exports = {
         case 'exec':
           if (!cliCommand) {
             await interaction.editReply('CLI command is required for exec operation');
-            return;
+            return false;
           }
           console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
           const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
           await interaction.editReply(`${interaction.user} Response from Script (Stdout): \n${result}`);
-          return;
+          return true;
       }
 
       await interaction.editReply(`Command has been sent. Awaiting response. This will take up to ${settings.DockerSettings.Retries * settings.DockerSettings.TimeBeforeRetry} seconds.`);
@@ -168,11 +165,11 @@ module.exports = {
         if ((command === 'start' || command === 'restart') && newStatus) {
           console.log(`[DockerCommand] Container ${dockerName} successfully ${command === 'start' ? 'started' : 'restarted'}`);
           await interaction.editReply(`${interaction.user} ${dockerName} has been ${command === 'start' ? 'started' : 'restarted'}`);
-          return;
+          return true;
         } else if (command === 'stop' && !newStatus) {
           console.log(`[DockerCommand] Container ${dockerName} successfully stopped`);
           await interaction.editReply(`${interaction.user} ${dockerName} has been stopped`);
-          return;
+          return true;
         }
       }
       
@@ -188,19 +185,24 @@ module.exports = {
         if ((command === 'start' || command === 'restart') && finalStatus) {
           console.log(`[DockerCommand] Final check: Container ${dockerName} is running`);
           await interaction.editReply(`${interaction.user} ${dockerName} has been ${command === 'start' ? 'started' : 'restarted'}`);
+          return true;
         } else if (command === 'stop' && !finalStatus) {
           console.log(`[DockerCommand] Final check: Container ${dockerName} is stopped`);
           await interaction.editReply(`${interaction.user} ${dockerName} has been stopped`);
+          return true;
         } else {
           console.log(`[DockerCommand] Final check: Container ${dockerName} operation may have failed`);
           await interaction.editReply(`${interaction.user} ${dockerName} could not be ${command}ed`);
+          return false;
         }
       } else {
         console.log(`[DockerCommand] Final check: Container ${dockerName} not found`);
         await interaction.editReply(`${interaction.user} ${dockerName} could not be found after command execution`);
+        return false;
       }
       
       console.log('[DockerCommand] Docker command completed');
+      return true;
     } catch (error) {
       console.error('[DockerCommand] Error executing docker command:', error);
       console.error('[DockerCommand] Error stack:', error.stack);
@@ -216,6 +218,7 @@ module.exports = {
       } catch (replyError) {
         console.error('[DockerCommand] Error sending error reply:', replyError);
       }
+      return false;
     }
   },
 

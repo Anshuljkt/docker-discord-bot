@@ -78,6 +78,7 @@ class DiscordService {
     });
 
     this.client.on(Events.InteractionCreate, async interaction => {
+      await interaction.deferReply();
       console.log(`[DiscordService] Interaction received:`, {
         type: interaction.type,
         commandName: interaction.commandName || 'N/A',

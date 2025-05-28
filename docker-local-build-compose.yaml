@@ -11,7 +11,15 @@ services:
       - ./settings:/app/settings
     environment:
       NODE_ENV: development
+      HEALTH_CHECK_PORT: 3021
     ports:
       - 9229:9229
+      - 3021:3021
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3021/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     command: ["node", "--inspect=0.0.0.0:9229", "index.js"]
     # user: "501:20"    # Needs to run as root for now...

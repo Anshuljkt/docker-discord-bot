@@ -71,8 +71,6 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // Defer reply IMMEDIATELY before any other operations to prevent timeout
-    await interaction.deferReply();
     
     console.log(`[RoleCommand] Executing role command for user: ${interaction.user.tag} (${interaction.user.id})`);
     
@@ -102,7 +100,7 @@ module.exports = {
           
           if (!containerExists) {
             await interaction.editReply(`Container "${container}" does not exist.`);
-            return;
+            return false;
           }
           
           // Add permission to the appropriate dictionary

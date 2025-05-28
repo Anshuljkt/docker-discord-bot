@@ -23,9 +23,6 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // Defer reply IMMEDIATELY before any other operations to prevent timeout
-    await interaction.deferReply();
-    
     console.log(`[ListCommand] Executing list command for user: ${interaction.user.tag} (${interaction.user.id})`);
     
     try {
@@ -65,7 +62,7 @@ module.exports = {
       if (filteredContainers.length === 0) {
         console.log(`[ListCommand] No ${filter !== 'all' ? filter : ''} containers found, sending empty response`);
         await interaction.editReply(`No ${filter !== 'all' ? filter : ''} containers found.`);
-        return;
+        return true;
       }
 
       // Find the longest container name for formatting

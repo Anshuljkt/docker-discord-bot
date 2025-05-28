@@ -17,10 +17,6 @@ module.exports = {
     const startTime = Date.now();
     
     try {
-      // Reply with a defer
-      console.log(`[PingCommand] Deferring reply...`);
-      await interaction.deferReply();
-      
       // Sleep for 4 seconds to simulate processing time
       //console.log(`[PingCommand] Simulating processing delay...`);
       // await new Promise(resolve => setTimeout(resolve, 4000));
@@ -34,7 +30,6 @@ module.exports = {
       console.log(`[PingCommand] Updating reply with final result...`);
       await interaction.editReply(`Pong! Response time: ${responseTime}ms, API latency: ${apiLatency}ms`);
       console.log(`[PingCommand] Ping command completed successfully`);
-      
       return true;
       
     } catch (error) {
