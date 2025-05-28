@@ -47,17 +47,33 @@ const { SettingsService } = require('./services/settingsService');
     
     console.log(`Found ${commands.length} commands to register.`);
     
-    // Check if a guild ID is provided for per-guild command registration
-    const guildId = process.env.GUILD_ID;
-    if (guildId) {
-      console.log(`Registering commands for guild ${guildId}...`);
-      await rest.put(
-        Routes.applicationGuildCommands(clientId, guildId),
-        { body: commands }
-      );
-      console.log('Commands registered successfully in the specified guild.');
+    // Get guild IDs from settings or environment variable
+    const guildIds = settings.DiscordSettings.GuildIDs || [];
+    const envGuildId = process.env.GUILD_ID;
+    
+    // Add env guild ID if it's not already in the array
+    if (envGuildId && !guildIds.includes(envGuildId)) {
+      guildIds.push(envGuildId);
+    }
+    
+    if (guildIds.length > 0) {
+      console.log(`Found ${guildIds.length} guild(s) to register commands for.`);
+      
+      // Register commands for each specified guild
+      for (const guildId of guildIds) {
+        console.log(`Registering commands for guild ${guildId}...`);
+        try {
+          await rest.put(
+            Routes.applicationGuildCommands(clientId, guildId),
+            { body: commands }
+          );
+          console.log(`Commands registered successfully in guild ${guildId}.`);
+        } catch (error) {
+          console.error(`Error registering commands for guild ${guildId}:`, error);
+        }
+      }
     } else {
-      console.log('Registering global commands (this may take up to 1 hour to propagate)...');
+      console.log('No specific guilds provided. Registering global commands (this may take up to 1 hour to propagate)...');
       await rest.put(
         Routes.applicationCommands(clientId),
         { body: commands }

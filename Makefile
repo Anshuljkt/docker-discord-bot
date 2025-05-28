@@ -3,8 +3,11 @@
 IMAGE_NAME=anshuljkt1/docker-discord-bot
 VERSION_FILE=package.json
 
-# Extract version from package.json
-EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+[^"]*?)".*/\1/')
+# Extract version from package.json. Mac version.
+EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+[^"]*)".*/\1/')
+
+# Extract version from package.json. GNU/Linux version.
+# EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "\([0-9]+\.[0-9]+\.[0-9]+[^"]*\)".*/\1/')
 
 # Extra tags can be passed as: make build EXTRA_TAGS="--tag $(IMAGE_NAME):prod"
 EXTRA_TAGS ?=
@@ -77,7 +80,12 @@ init-buildx:
 release: set-version init-buildx
 	@echo "=== Building and Pushing Multi-Platform Image ==="
 	docker buildx build --push --platform $(PLATFORMS) $(TAGS) .
-	@echo "🚀 Release complete for version $(VER)"
+
+	@if [ -z "$(VER)" ]; then \
+		echo "🚀 Release complete for version $(EXTRACTED_VERSION)"; \
+	else \
+		echo "🚀 Release complete for version $(VER)"; \
+	fi
 
 ## Tag an existing multi-arch image
 tag:

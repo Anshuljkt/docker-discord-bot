@@ -3,7 +3,7 @@
  * Discord Service to manage bot interactions
  */
 
-const { Client, GatewayIntentBits, Collection, REST, Routes, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, REST, Routes, Events } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { DockerService } = require('./dockerService');
@@ -34,6 +34,9 @@ class DiscordService {
    */
   async start() {
     console.log('[DiscordService] Starting Discord bot service...');
+    console.log('[DiscordService] Platform:', process.platform, process.arch);
+    console.log('[DiscordService] Node.js version:', process.version);
+    
     // Register event handlers
     this.registerEvents();
     
@@ -59,7 +62,7 @@ class DiscordService {
   registerEvents() {
     console.log('[DiscordService] Registering Discord event handlers...');
     
-    this.client.once('ready', () => {
+    this.client.once(Events.ClientReady, () => {
       console.log(`[DiscordService] Bot ready event fired! Logged in as ${this.client.user.tag}`);
       console.log(`[DiscordService] Bot ID: ${this.client.user.id}`);
       console.log(`[DiscordService] Bot is in ${this.client.guilds.cache.size} guilds`);
@@ -72,7 +75,7 @@ class DiscordService {
       this.registerSlashCommands();
     });
 
-    this.client.on('interactionCreate', async (interaction) => {
+    this.client.on(Events.InteractionCreate, async interaction => {
       console.log(`[DiscordService] Interaction received:`, {
         type: interaction.type,
         commandName: interaction.commandName || 'N/A',
@@ -101,14 +104,18 @@ class DiscordService {
         });
         
         try {
+          // Handle unknown command - make sure we respond quickly
           if (!interaction.replied && !interaction.deferred) {
+            console.log(`[DiscordService] Responding to unknown command: ${interaction.commandName}`);
             await interaction.reply({ 
               content: `Unknown command: ${interaction.commandName}. This might be a registration issue.`, 
               ephemeral: true 
             });
+            console.log(`[DiscordService] Response sent for unknown command`);
           }
         } catch (replyError) {
           console.error(`[DiscordService] Error replying to unknown command:`, replyError);
+          console.error(`[DiscordService] Error details:`, replyError.message);
         }
         return;
       }
@@ -119,6 +126,7 @@ class DiscordService {
         // Start a non-blocking async job for commands that take longer
         const startTime = Date.now();
         
+        console.log(`[DiscordService] Starting execution of command "${interaction.commandName}"...`);
         await command.execute(interaction);
         
         const executionTime = Date.now() - startTime;
@@ -129,16 +137,34 @@ class DiscordService {
         }
       } catch (error) {
         console.error(`[DiscordService] ERROR executing command ${interaction.commandName}:`, error);
+        console.error(`[DiscordService] Error message: ${error.message}`);
         console.error(`[DiscordService] Error stack:`, error.stack);
         
+        if (error.code) {
+          console.error(`[DiscordService] Error code: ${error.code}`);
+        }
+        
         try {
+          console.log(`[DiscordService] Checking interaction state - deferred: ${interaction.deferred}, replied: ${interaction.replied}`);
+          
           if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'There was an error executing this command', ephemeral: true });
+            console.log(`[DiscordService] Sending followUp for command error...`);
+            await interaction.followUp({ 
+              content: `Error executing command: ${error.message || 'Unknown error'}`, 
+              ephemeral: true 
+            });
+            console.log(`[DiscordService] FollowUp sent successfully`);
           } else {
-            await interaction.reply({ content: 'There was an error executing this command', ephemeral: true });
+            console.log(`[DiscordService] Sending reply for command error...`);
+            await interaction.reply({ 
+              content: `Error executing command: ${error.message || 'Unknown error'}`, 
+              ephemeral: true 
+            });
+            console.log(`[DiscordService] Reply sent successfully`);
           }
         } catch (replyError) {
           console.error(`[DiscordService] Error sending error reply:`, replyError);
+          console.error(`[DiscordService] Reply error message: ${replyError.message}`);
         }
       }
     });
@@ -210,7 +236,7 @@ class DiscordService {
     console.log(`[DiscordService] Commands to register: ${this.commandsData.length}`);
     
     try {
-      const rest = new REST({ version: '10' }).setToken(this.settings.DiscordSettings.Token);
+      const rest = new REST().setToken(this.settings.DiscordSettings.Token);
       
       console.log(`[DiscordService] Started refreshing ${this.commandsData.length} application (/) commands.`);
       console.log(`[DiscordService] Bot User ID: ${this.client.user.id}`);
@@ -220,12 +246,41 @@ class DiscordService {
         console.log(`[DiscordService] Command ${index + 1}: ${cmd.name} - ${cmd.description}`);
       });
 
-      const data = await rest.put(
-        Routes.applicationCommands(this.client.user.id),
-        { body: this.commandsData },
-      );
-
-      console.log(`[DiscordService] ✓ Successfully registered ${data.length} application commands with Discord.`);
+      // Get guild IDs from settings
+      const guildIds = this.settings.DiscordSettings.GuildIDs || [];
+      
+      let data;
+      
+      if (guildIds.length > 0) {
+        console.log(`[DiscordService] Registering commands for ${guildIds.length} specific guild(s)...`);
+        
+        // Register commands for each guild
+        for (const guildId of guildIds) {
+          console.log(`[DiscordService] Registering commands for guild ${guildId}...`);
+          try {
+            const guildData = await rest.put(
+              Routes.applicationGuildCommands(this.client.user.id, guildId),
+              { body: this.commandsData },
+            );
+            console.log(`[DiscordService] ✓ Successfully registered ${guildData.length} commands for guild ${guildId}`);
+            
+            // Store the last response data
+            data = guildData;
+          } catch (guildError) {
+            console.error(`[DiscordService] Error registering commands for guild ${guildId}:`, guildError);
+          }
+        }
+      } else {
+        console.log(`[DiscordService] No specific guilds found. Registering global commands (this may take up to 1 hour to propagate)...`);
+        
+        // // Register global commands
+        // data = await rest.put(
+        //   Routes.applicationCommands(this.client.user.id),
+        //   { body: this.commandsData },
+        // );
+        
+        // console.log(`[DiscordService] ✓ Successfully registered ${data.length} global application commands.`);
+      }
       
       // Log registered commands details
       if (Array.isArray(data)) {

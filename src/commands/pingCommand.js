@@ -17,19 +17,22 @@ module.exports = {
     const startTime = Date.now();
     
     try {
-      console.log(`[PingCommand] Deferring reply to avoid timeout...`);
-      // Use deferReply to prevent timeout issues
-      await interaction.deferReply();
-      console.log(`[PingCommand] Reply deferred successfully`);
+      // Reply with a defer
+      console.log(`[PingCommand] Deferring reply...`);
+      interaction.deferReply();
       
-      const deferTime = Date.now();
-      const deferLatency = deferTime - startTime;
+      // Sleep for 4 seconds to simulate processing time
+      console.log(`[PingCommand] Simulating processing delay...`);
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      const responseTime = Date.now() - startTime;
+      const apiLatency = interaction.client.ws.ping;
       
-      console.log(`[PingCommand] Defer latency: ${deferLatency}ms`);
-      console.log(`[PingCommand] API latency: ${interaction.client.ws.ping}ms`);
+      console.log(`[PingCommand] Response latency: ${responseTime}ms`);
+      console.log(`[PingCommand] API latency: ${apiLatency}ms`);
       
-      console.log(`[PingCommand] Editing reply with final result...`);
-      await interaction.editReply(`Pong! Defer latency: ${deferLatency}ms, API latency: ${interaction.client.ws.ping}ms`);
+      // Edit the response with the final ping information
+      console.log(`[PingCommand] Updating reply with final result...`);
+      await interaction.editReply(`Pong! Response time: ${responseTime}ms, API latency: ${apiLatency}ms`);
       console.log(`[PingCommand] Ping command completed successfully`);
       
     } catch (error) {
@@ -37,12 +40,12 @@ module.exports = {
       console.error(`[PingCommand] Error stack:`, error.stack);
       
       try {
-        if (interaction.deferred) {
-          await interaction.editReply('Error executing ping command');
-        } else if (!interaction.replied) {
-          await interaction.reply({ content: 'Error executing ping command', flags: 64 }); // 64 = ephemeral flag
-        } else {
-          await interaction.followUp({ content: 'Error completing ping command', flags: 64 });
+        // Simplified error handling - just try to respond if we haven't already
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ 
+            content: 'Error executing ping command', 
+            ephemeral: true 
+          });
         }
       } catch (replyError) {
         console.error(`[PingCommand] Error sending error reply:`, replyError);
