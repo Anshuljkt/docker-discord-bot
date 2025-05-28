@@ -46,6 +46,10 @@ const { SettingsService } = require('./services/settingsService');
     }
     
     console.log(`Found ${commands.length} commands to register.`);
+
+    rest.put(Routes.applicationCommands(clientId), { body: [] })
+      .then(() => console.log('Successfully deleted all global commands.'))
+      .catch(console.error);
     
     // Get guild IDs from settings or environment variable
     const guildIds = settings.DiscordSettings.GuildIDs || [];
@@ -61,24 +65,28 @@ const { SettingsService } = require('./services/settingsService');
       
       // Register commands for each specified guild
       for (const guildId of guildIds) {
-        console.log(`Registering commands for guild ${guildId}...`);
-        try {
-          await rest.put(
-            Routes.applicationGuildCommands(clientId, guildId),
-            { body: commands }
-          );
-          console.log(`Commands registered successfully in guild ${guildId}.`);
-        } catch (error) {
-          console.error(`Error registering commands for guild ${guildId}:`, error);
-        }
+        rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] })
+        .then(() => console.log('Successfully deleted all guild commands.'))
+        .catch(console.error);
+
+        // console.log(`Registering commands for guild ${guildId}...`);
+        // try {
+        //   await rest.put(
+        //     Routes.applicationGuildCommands(clientId, guildId),
+        //     { body: commands }
+        //   );
+        //   console.log(`Commands registered successfully in guild ${guildId}.`);
+        // } catch (error) {
+        //   console.error(`Error registering commands for guild ${guildId}:`, error);
+        // }
       }
-    } else {
-      console.log('No specific guilds provided. Registering global commands (this may take up to 1 hour to propagate)...');
-      await rest.put(
-        Routes.applicationCommands(clientId),
-        { body: commands }
-      );
-      console.log('Global commands registered successfully.');
+    } else {      
+      // console.log('No specific guilds provided. Registering global commands (this may take up to 1 hour to propagate)...');
+      // await rest.put(
+      //   Routes.applicationCommands(clientId),
+      //   { body: commands }
+      // );
+      // console.log('Global commands registered successfully.');
     }
   } catch (error) {
     console.error('Error registering commands:', error);
