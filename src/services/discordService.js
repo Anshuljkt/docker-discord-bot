@@ -37,9 +37,6 @@ class DiscordService {
     console.log('[DiscordService] Platform:', process.platform, process.arch);
     console.log('[DiscordService] Node.js version:', process.version);
     
-    // Register event handlers
-    this.registerEvents();
-    
     // Load commands
     await this.loadCommands();
     
@@ -54,15 +51,18 @@ class DiscordService {
       console.error(`[DiscordService] Error details:`, error);
       process.exit(1);
     }
+
+    // Register event handlers
+    await this.registerEvents();
   }
 
   /**
    * Register Discord.js event handlers
    */
-  registerEvents() {
+  async registerEvents() {
     console.log('[DiscordService] Registering Discord event handlers...');
     
-    this.client.once(Events.ClientReady, () => {
+    this.client.once(Events.ClientReady, async() => {
       console.log(`[DiscordService] Bot ready event fired! Logged in as ${this.client.user.tag}`);
       console.log(`[DiscordService] Bot ID: ${this.client.user.id}`);
       console.log(`[DiscordService] Bot is in ${this.client.guilds.cache.size} guilds`);
@@ -72,7 +72,7 @@ class DiscordService {
         console.log(`[DiscordService] Guild: ${guild.name} (${guild.id}) - ${guild.memberCount} members`);
       });
       
-      this.registerSlashCommands();
+      await this.registerSlashCommands();
     });
 
     this.client.on(Events.InteractionCreate, async interaction => {
