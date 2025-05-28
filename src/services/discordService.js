@@ -9,6 +9,8 @@ const path = require('path');
 const { DockerService } = require('./dockerService');
 const { SettingsService } = require('./settingsService');
 
+
+// Discord Bot Permissions Int: 412317333568
 class DiscordService {
   constructor(settings, dockerService, settingsService) {
     console.log('[DiscordService] Initializing Discord service...');
@@ -258,6 +260,10 @@ class DiscordService {
         for (const guildId of guildIds) {
           console.log(`[DiscordService] Registering commands for guild ${guildId}...`);
           try {
+            // rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: [] })
+            //   .then(() => console.log('Successfully deleted all guild commands.'))
+            //   .catch(console.error);
+
             const guildData = await rest.put(
               Routes.applicationGuildCommands(this.client.user.id, guildId),
               { body: this.commandsData },
@@ -273,13 +279,13 @@ class DiscordService {
       } else {
         console.log(`[DiscordService] No specific guilds found. Registering global commands (this may take up to 1 hour to propagate)...`);
         
-        // // Register global commands
-        // data = await rest.put(
-        //   Routes.applicationCommands(this.client.user.id),
-        //   { body: this.commandsData },
-        // );
+        // Register global commands
+        data = await rest.put(
+          Routes.applicationCommands(this.client.user.id),
+          { body: this.commandsData },
+        );
         
-        // console.log(`[DiscordService] ✓ Successfully registered ${data.length} global application commands.`);
+        console.log(`[DiscordService] ✓ Successfully registered ${data.length} global application commands.`);
       }
       
       // Log registered commands details
