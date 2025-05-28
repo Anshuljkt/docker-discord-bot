@@ -13,42 +13,42 @@ module.exports = {
     console.log(`[PingCommand] Executing ping command for user: ${interaction.user.tag} (${interaction.user.id})`);
     console.log(`[PingCommand] Guild: ${interaction.guild?.name || 'DM'} (${interaction.guildId || 'N/A'})`);
     console.log(`[PingCommand] Channel: ${interaction.channelId}`);
-    
+
     const startTime = Date.now();
-    
+
     try {
       // Sleep for 4 seconds to simulate processing time
       //console.log(`[PingCommand] Simulating processing delay...`);
       // await new Promise(resolve => setTimeout(resolve, 4000));
       const responseTime = Date.now() - startTime;
       const apiLatency = interaction.client.ws.ping;
-      
+
       console.log(`[PingCommand] Response latency: ${responseTime}ms`);
       console.log(`[PingCommand] API latency: ${apiLatency}ms`);
-      
+
       // Edit the response with the final ping information
-      console.log(`[PingCommand] Updating reply with final result...`);
+      console.log('[PingCommand] Updating reply with final result...');
       await interaction.editReply(`Pong! Response time: ${responseTime}ms, API latency: ${apiLatency}ms`);
-      console.log(`[PingCommand] Ping command completed successfully`);
+      console.log('[PingCommand] Ping command completed successfully');
       return true;
-      
+
     } catch (error) {
-      console.error(`[PingCommand] Error executing ping command:`, error);
-      console.error(`[PingCommand] Error stack:`, error.stack);
-      
+      console.error('[PingCommand] Error executing ping command:', error);
+      console.error('[PingCommand] Error stack:', error.stack);
+
       try {
         // Simplified error handling - just try to respond if we haven't already
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ 
-            content: 'Error executing ping command', 
-            ephemeral: true 
+          await interaction.reply({
+            content: 'Error executing ping command',
+            ephemeral: true,
           });
         }
       } catch (replyError) {
-        console.error(`[PingCommand] Error sending error reply:`, replyError);
+        console.error('[PingCommand] Error sending error reply:', replyError);
       }
-      
+
       return false;
     }
-  }
+  },
 };

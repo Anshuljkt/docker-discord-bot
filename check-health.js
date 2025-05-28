@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Standalone health check utility
- * 
+ *
  * This script can be used to check the health of a running bot instance.
- * 
+ *
  * Usage:
  *   node check-health.js [port]
- * 
+ *
  * Example:
  *   node check-health.js 3021
  */
@@ -29,7 +29,7 @@ http.get(url, (res) => {
   } else if (!/^application\/json/.test(contentType)) {
     error = new Error(`Invalid content-type. Expected application/json but received ${contentType}`);
   }
-  
+
   if (error) {
     console.error(error.message);
     // Consume response data to free up memory
@@ -40,19 +40,19 @@ http.get(url, (res) => {
 
   res.setEncoding('utf8');
   let rawData = '';
-  
+
   res.on('data', (chunk) => { rawData += chunk; });
-  
+
   res.on('end', () => {
     try {
       const health = JSON.parse(rawData);
-      
+
       // Print overall status
       console.log(`\nHealth Status: ${health.status.toUpperCase()}`);
       console.log(`Timestamp: ${health.timestamp}`);
       console.log(`Uptime: ${formatDuration(health.uptime)}`);
       console.log(`Version: ${health.version}`);
-      
+
       // Print Discord status
       console.log(`\nDiscord: ${health.services.discord.status}`);
       if (health.services.discord.ping) {
@@ -61,19 +61,19 @@ http.get(url, (res) => {
       if (health.services.discord.guilds) {
         console.log(`Connected Guilds: ${health.services.discord.guilds}`);
       }
-      
+
       // Print Docker status
       console.log(`\nDocker: ${health.services.docker.status}`);
       if (health.services.docker.containers) {
         console.log(`Docker Containers: ${health.services.docker.containers}`);
       }
-      
+
       // Print system info
-      console.log(`\nSystem:`);
+      console.log('\nSystem:');
       console.log(`Platform: ${health.system.platform} ${health.system.arch}`);
       console.log(`Node.js: ${health.system.nodeVersion}`);
       console.log(`Memory: ${health.system.memory.usage} used (${health.system.memory.free} free / ${health.system.memory.total} total)`);
-      
+
       if (health.status !== 'healthy') {
         process.exit(1);
       } else {
@@ -86,7 +86,7 @@ http.get(url, (res) => {
   });
 }).on('error', (e) => {
   console.error(`Health check request error: ${e.message}`);
-  console.error(`Bot may not be running or health check service is not accessible.`);
+  console.error('Bot may not be running or health check service is not accessible.');
   process.exit(1);
 });
 

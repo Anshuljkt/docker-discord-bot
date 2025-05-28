@@ -14,7 +14,7 @@ module.exports = {
       option
         .setName('dockername')
         .setDescription('Choose a container')
-        .setRequired(true)
+        .setRequired(true),
     )
     .addStringOption(option =>
       option
@@ -26,32 +26,32 @@ module.exports = {
           { name: 'Stop', value: 'stop' },
           { name: 'Restart', value: 'restart' },
           { name: 'Execute', value: 'exec' },
-          { name: 'JF Fix', value: 'jfFix' }
-        )
+          { name: 'JF Fix', value: 'jfFix' },
+        ),
     )
     .addStringOption(option =>
       option
         .setName('cli')
         .setDescription('Command to execute in the container')
-        .setRequired(false)
+        .setRequired(false),
     ),
 
   async execute(interaction) {
     console.log(`[DockerCommand] Executing docker command for user: ${interaction.user.tag} (${interaction.user.id})`);
-    
+
     try {
       console.log('[DockerCommand] Creating service instances...');
       // Create service instances for this command execution
       const settingsService = new SettingsService();
       const settings = await settingsService.loadSettings();
       const dockerService = new DockerService(settings);
-      
+
       await dockerService.dockerUpdate();
 
       const command = interaction.options.getString('command');
       let dockerName = interaction.options.getString('dockername');
       const cliCommand = interaction.options.getString('cli');
-      
+
       console.log(`[DockerCommand] Command: ${command}, Container: ${dockerName}, CLI: ${cliCommand || 'N/A'}`);
 
       // Special case for jfFix command
@@ -71,8 +71,8 @@ module.exports = {
 
       // Find the container
       const containers = await dockerService.dockerUpdate();
-      const docker = containers.find(container => 
-        container.Names.some(name => name.replace('/', '') === dockerName)
+      const docker = containers.find(container =>
+        container.Names.some(name => name.replace('/', '') === dockerName),
       );
 
       if (!docker) {
@@ -87,12 +87,12 @@ module.exports = {
       // Check container status before executing command
       const isRunning = docker.State === 'running';
       console.log(`[DockerCommand] Container ${dockerName} state: ${docker.State}, Status: ${docker.Status}`);
-      
+
       if (command === 'start' && isRunning) {
         await interaction.editReply(`${dockerName} is already running`);
         return true;
       }
-      
+
       if ((command === 'stop' || command === 'restart') && !isRunning) {
         await interaction.editReply(`${dockerName} is already stopped`);
         return true;
@@ -102,7 +102,7 @@ module.exports = {
       if (command === 'jfFix') {
         console.log('[DockerCommand] Starting JF Fix process...');
         await interaction.editReply('Starting JF Fix process. This may take several minutes...');
-        
+
         // Run the long operation in a background task
         dockerService.dockerCustomCommandJFFix()
           .then(result => {
@@ -113,32 +113,36 @@ module.exports = {
             console.error('[DockerCommand] JF Fix failed:', error);
             interaction.followUp(`Error during JF Fix: ${error.message}`);
           });
-        
+
         return true;
       }
 
       // Execute the command
       console.log(`[DockerCommand] Executing ${command} command on container ${dockerName}...`);
-      
+
       switch (command) {
-        case 'start':
-          await dockerService.dockerCommandStart(dockerId);
-          break;
-        case 'stop':
-          await dockerService.dockerCommandStop(dockerId);
-          break;
-        case 'restart':
-          await dockerService.dockerCommandRestart(dockerId);
-          break;
-        case 'exec':
-          if (!cliCommand) {
-            await interaction.editReply('CLI command is required for exec operation');
-            return false;
-          }
-          console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
-          const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
-          await interaction.editReply(`${interaction.user} Response from Script (Stdout): \n${result}`);
-          return true;
+      case 'start': {
+        await dockerService.dockerCommandStart(dockerId);
+        break;
+      }
+      case 'stop': {
+        await dockerService.dockerCommandStop(dockerId);
+        break;
+      }
+      case 'restart': {
+        await dockerService.dockerCommandRestart(dockerId);
+        break;
+      }
+      case 'exec': {
+        if (!cliCommand) {
+          await interaction.editReply('CLI command is required for exec operation');
+          return false;
+        }
+        console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
+        const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
+        await interaction.editReply(`${interaction.user} Response from Script (Stdout): \n${result}`);
+        return true;
+      }
       }
 
       await interaction.editReply(`Command has been sent. Awaiting response. This will take up to ${settings.DockerSettings.Retries * settings.DockerSettings.TimeBeforeRetry} seconds.`);
@@ -148,20 +152,20 @@ module.exports = {
       for (let i = 0; i < settings.DockerSettings.Retries; i++) {
         await new Promise(resolve => setTimeout(resolve, settings.DockerSettings.TimeBeforeRetry * 1000));
         await dockerService.dockerUpdate();
-        
+
         const updatedContainers = await dockerService.dockerUpdate();
-        const updatedContainer = updatedContainers.find(c => 
-          c.Id === dockerId
+        const updatedContainer = updatedContainers.find(c =>
+          c.Id === dockerId,
         );
-        
+
         if (!updatedContainer) {
           console.log(`[DockerCommand] Cannot find container ${dockerId} after update (retry ${i + 1})`);
           continue;
         }
-        
+
         console.log(`[DockerCommand] Updated container state: ${updatedContainer.State}, Status: ${updatedContainer.Status}`);
         const newStatus = updatedContainer.State === 'running';
-        
+
         if ((command === 'start' || command === 'restart') && newStatus) {
           console.log(`[DockerCommand] Container ${dockerName} successfully ${command === 'start' ? 'started' : 'restarted'}`);
           await interaction.editReply(`${interaction.user} ${dockerName} has been ${command === 'start' ? 'started' : 'restarted'}`);
@@ -172,16 +176,16 @@ module.exports = {
           return true;
         }
       }
-      
+
       // Final check after all retries
       console.log('[DockerCommand] Performing final status check...');
       await dockerService.dockerUpdate();
       const finalContainers = await dockerService.dockerUpdate();
       const finalContainer = finalContainers.find(c => c.Id === dockerId);
-      
+
       if (finalContainer) {
         const finalStatus = finalContainer.State === 'running';
-        
+
         if ((command === 'start' || command === 'restart') && finalStatus) {
           console.log(`[DockerCommand] Final check: Container ${dockerName} is running`);
           await interaction.editReply(`${interaction.user} ${dockerName} has been ${command === 'start' ? 'started' : 'restarted'}`);
@@ -200,13 +204,10 @@ module.exports = {
         await interaction.editReply(`${interaction.user} ${dockerName} could not be found after command execution`);
         return false;
       }
-      
-      console.log('[DockerCommand] Docker command completed');
-      return true;
     } catch (error) {
       console.error('[DockerCommand] Error executing docker command:', error);
       console.error('[DockerCommand] Error stack:', error.stack);
-      
+
       try {
         if (interaction.deferred) {
           await interaction.editReply(`Error executing command: ${error.message}`);
@@ -226,12 +227,12 @@ module.exports = {
     // Create settings service for authorization check
     const settingsService = new SettingsService();
     const settings = await settingsService.loadSettings();
-    
+
     // Check if user is admin
     if (settings.DiscordSettings.AdminIDs.includes(interaction.user.id)) {
       return true;
     }
-    
+
     // Check if user is in the admin list
     if (settings.DiscordSettings.AdminIDs.includes(interaction.user.id)) {
       return true;
@@ -244,7 +245,7 @@ module.exports = {
     // Check user permissions
     const userId = interaction.user.id;
     if (['start'].includes(command)) {
-      if (settings.DiscordSettings.UserStartPermissions[userId] && 
+      if (settings.DiscordSettings.UserStartPermissions[userId] &&
           settings.DiscordSettings.UserStartPermissions[userId].includes(dockerName)) {
         return true;
       }
@@ -257,7 +258,7 @@ module.exports = {
 
     // Check role permissions
     const userRoles = interaction.member.roles.cache;
-    
+
     if (['start'].includes(command)) {
       for (const [roleId, containers] of Object.entries(settings.DiscordSettings.RoleStartPermissions)) {
         if (userRoles.has(roleId) && containers.includes(dockerName)) {
@@ -273,5 +274,5 @@ module.exports = {
     }
 
     return false;
-  }
+  },
 };

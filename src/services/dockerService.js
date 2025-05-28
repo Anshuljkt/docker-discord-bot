@@ -30,12 +30,12 @@ class DockerService {
     try {
       this.containers = await this.docker.listContainers({ all: true });
       console.log(`Updated container list: ${this.containers.length} containers found`);
-      
+
       // Debug first container if available
       if (this.containers.length > 0) {
         console.log(`First container details: ID=${this.containers[0].Id.substring(0, 12)}, State=${this.containers[0].State}, Status=${this.containers[0].Status}`);
       }
-      
+
       return this.containers;
     } catch (error) {
       console.error(`Error updating containers: ${error.message}`);
@@ -49,11 +49,11 @@ class DockerService {
    * @returns {Object|null} Container object or null if not found
    */
   getContainer(idOrName) {
-    const container = this.containers.find(c => 
-      c.Id === idOrName || 
-      c.Names.some(name => name.replace('/', '') === idOrName)
+    const container = this.containers.find(c =>
+      c.Id === idOrName ||
+      c.Names.some(name => name.replace('/', '') === idOrName),
     );
-    
+
     return container ? this.docker.getContainer(container.Id) : null;
   }
 
@@ -69,24 +69,24 @@ class DockerService {
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
-      
+
       // Inspect the container before starting
       const inspectData = await container.inspect();
       console.log(`Container state before start: ${JSON.stringify(inspectData.State)}`);
-      
+
       if (inspectData.State.Running) {
         console.log(`Container ${id} is already running`);
         return true;
       }
-      
+
       console.log(`Starting container ${id}...`);
       await container.start();
       console.log(`Start command sent to ${id}`);
-      
+
       // Inspect the container after starting
       const afterInspect = await container.inspect();
       console.log(`Container state after start: ${JSON.stringify(afterInspect.State)}`);
-      
+
       await this.dockerUpdate();
       return afterInspect.State.Running;
     } catch (error) {
@@ -106,7 +106,7 @@ class DockerService {
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
-      
+
       await container.stop();
       await this.dockerUpdate();
       return true;
@@ -127,7 +127,7 @@ class DockerService {
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
-      
+
       await container.restart();
       await this.dockerUpdate();
       return true;
@@ -136,7 +136,7 @@ class DockerService {
       return false;
     }
   }
-  
+
   /**
    * Execute a command inside a container
    * @param {string} id - Container ID or name
@@ -149,39 +149,39 @@ class DockerService {
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
-      
+
       const exec = await container.exec({
         // Use bash for command execution with proper argument parsing
         Cmd: ['bash', '-c', command],
         AttachStdout: true,
-        AttachStderr: true
+        AttachStderr: true,
       });
-      
+
       const stream = await exec.start();
-      
+
       return new Promise((resolve, reject) => {
         let stdoutOutput = '';
         let stderrOutput = '';
-        
+
         // Handle stdout data
         stream.on('data', (chunk) => {
           stdoutOutput += chunk.toString();
         });
-        
+
         // Handle stderr data if available
         stream.stderr?.on('data', (chunk) => {
           stderrOutput += chunk.toString();
         });
-        
+
         // Handle stream end
         stream.on('end', () => {
           // If there's stderr output, include it in the result
-          const output = stderrOutput ? 
-            `STDOUT:\n${stdoutOutput}\nSTDERR:\n${stderrOutput}` : 
+          const output = stderrOutput ?
+            `STDOUT:\n${stdoutOutput}\nSTDERR:\n${stderrOutput}` :
             stdoutOutput;
           resolve(output);
         });
-        
+
         // Handle errors
         stream.on('error', (err) => {
           reject(err);
@@ -192,7 +192,7 @@ class DockerService {
       return `Error: ${error.message}`;
     }
   }
-  
+
   /**
    * Special command for fixing Jellyfin and related services
    * @returns {Promise<string>} Command output
@@ -200,11 +200,11 @@ class DockerService {
   async dockerCustomCommandJFFix() {
     const output = [];
     const containers = ['jellyfin', 'jellystat', 'jellystat-db'];
-    
+
     // Stop containers
     console.log('Stopping containers...');
     output.push('Stopping containers...');
-    
+
     for (const containerName of containers) {
       const container = this.getContainerByName(containerName);
       if (container) {
@@ -212,16 +212,16 @@ class DockerService {
         await this.dockerCommandStop(container.Id);
       }
     }
-    
+
     // Wait for containers to stop with retries
     console.log('Waiting for containers to stop...');
     let allStopped = false;
-    
+
     for (let i = 0; i < this.settings.DockerSettings.Retries; i++) {
       console.log(`Retry ${i + 1}/${this.settings.DockerSettings.Retries} - Checking container status...`);
       await new Promise(resolve => setTimeout(resolve, this.settings.DockerSettings.TimeBeforeRetry * 1000));
       await this.dockerUpdate();
-      
+
       allStopped = true;
       for (const containerName of containers) {
         const container = this.getContainerByName(containerName);
@@ -231,31 +231,31 @@ class DockerService {
           break;
         }
       }
-      
+
       if (allStopped) {
         console.log('All containers stopped successfully.');
         output.push('All containers stopped successfully.');
         break;
       }
     }
-    
+
     // Start Jellyfin first
     console.log('Starting Jellyfin...');
     output.push('Starting Jellyfin...');
-    
+
     const jellyfin = this.getContainerByName('jellyfin');
     if (jellyfin) {
       await this.dockerCommandStart(jellyfin.Id);
-      
+
       // Wait for Jellyfin to start with retries
       console.log('Waiting for Jellyfin to start...');
       let jellyfinStarted = false;
-      
+
       for (let i = 0; i < this.settings.DockerSettings.Retries; i++) {
         console.log(`Retry ${i + 1}/${this.settings.DockerSettings.Retries} - Checking Jellyfin status...`);
         await new Promise(resolve => setTimeout(resolve, this.settings.DockerSettings.TimeBeforeRetry * 1000));
         await this.dockerUpdate();
-        
+
         const updatedJellyfin = this.getContainerByName('jellyfin');
         if (updatedJellyfin && updatedJellyfin.State === 'running') {
           console.log('Jellyfin started successfully.');
@@ -264,7 +264,7 @@ class DockerService {
           break;
         }
       }
-      
+
       if (!jellyfinStarted) {
         console.log('Failed to start Jellyfin.');
         output.push('Failed to start Jellyfin.');
@@ -275,16 +275,16 @@ class DockerService {
       output.push('Jellyfin container not found.');
       return output.join('\n');
     }
-    
+
     // Wait additional time for Jellyfin to fully initialize
     console.log('Waiting for Jellyfin to initialize...');
     output.push('Waiting for Jellyfin to initialize...');
     await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-    
+
     // Start remaining containers
     console.log('Starting remaining containers...');
     output.push('Starting remaining containers...');
-    
+
     for (const containerName of ['jellystat-db', 'jellystat']) {
       const container = this.getContainerByName(containerName);
       if (container) {
@@ -292,11 +292,11 @@ class DockerService {
         await this.dockerCommandStart(container.Id);
       }
     }
-    
+
     // Final check
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
     await this.dockerUpdate();
-    
+
     let allRunning = true;
     for (const containerName of containers) {
       const container = this.getContainerByName(containerName);
@@ -306,7 +306,7 @@ class DockerService {
         allRunning = false;
       }
     }
-    
+
     if (allRunning) {
       console.log('All containers are running successfully.');
       output.push('All containers are running successfully.');
@@ -314,10 +314,10 @@ class DockerService {
       console.log('Not all containers are running. JF Fix may not have succeeded completely.');
       output.push('Not all containers are running. JF Fix may not have succeeded completely.');
     }
-    
+
     return output.join('\n');
   }
-  
+
   /**
    * Helper to get container by name
    * @param {string} name - Container name
@@ -330,7 +330,7 @@ class DockerService {
    */
   getContainerByName(name) {
     return this.containers.find(container =>
-      container.Names.some(containerName => containerName.replace('/', '') === name)
+      container.Names.some(containerName => containerName.replace('/', '') === name),
     );
   }
 
@@ -344,17 +344,17 @@ class DockerService {
       const name = container.Names[0].replace('/', '');
       const state = container.State;
       const status = container.Status;
-      
+
       return {
         id: container.Id.substring(0, 12), // Short ID
         name,
         state,
         status,
-        image: container.Image
+        image: container.Image,
       };
     });
   }
-  
+
   /**
    * Check if a container is running
    * @param {Object} container - Container object from dockerode
