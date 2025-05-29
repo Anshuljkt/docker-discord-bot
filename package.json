@@ -1,6 +1,6 @@
 {
   "name": "docker-discord-bot",
-  "version": "1.3.6-stable",
+  "version": "1.3.6-anshul2",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
