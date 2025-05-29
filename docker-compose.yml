@@ -12,7 +12,7 @@ services:
     ports:
       - 3021:3021
     healthcheck:
-      test: curl --fail -i http://localhost:3021/health || exit 1
+      test: wget -q --spider http://192.168.0.116:3021/health || exit 1
       interval: 30s
       timeout: 5s
       retries: 3
