@@ -5,6 +5,8 @@
 # Default values
 VERBOSE=0
 DEBUG=0
+CF_ACCESS_CLIENT_ID=""
+CF_ACCESS_CLIENT_SECRET=""
 
 # Color codes
 RED='\033[0;31m'

@@ -121,23 +121,24 @@ export
 
 ## Trigger Portainer webhook to update a stack
 portainer-update:
-	@if [ ! -f ".env" ]; then \
-		echo "❌ Error: .env file not found"; \
-		exit 1; \
-	fi
-	@echo "=== Loading environment variables ==="
+	@echo "=== Checking environment variables ==="
 	@if [ -z "$$WEBHOOK_URL" ]; then \
-		echo "❌ Error: WEBHOOK_URL not found in .env file"; \
+		if [ ! -f ".env" ]; then \
+			echo "❌ Error: WEBHOOK_URL not provided and .env file not found"; \
+			echo "Either provide WEBHOOK_URL directly or create a .env file"; \
+			exit 1; \
+		else \
+			echo "❌ Error: WEBHOOK_URL not found in .env file"; \
+			exit 1; \
+		fi; \
+	fi
+	
+	@if [ -z "$$CF_ACCESS_CLIENT_ID" ] || [ -z "$$CF_ACCESS_CLIENT_SECRET" ]; then \
+		echo "❌ Error: Cloudflare Access credentials missing"; \
+		echo "Required: CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET"; \
 		exit 1; \
 	fi
-	@if [ -z "$$CF_ACCESS_CLIENT_ID" ]; then \
-		echo "❌ Error: CF_ACCESS_CLIENT_ID not found in .env file"; \
-		exit 1; \
-	fi
-	@if [ -z "$$CF_ACCESS_CLIENT_SECRET" ]; then \
-		echo "❌ Error: CF_ACCESS_CLIENT_SECRET not found in .env file"; \
-		exit 1; \
-	fi
+	
 	@echo "=== Triggering Portainer Webhook ==="
 	@echo "Webhook URL: $$WEBHOOK_URL"
 	
@@ -166,52 +167,71 @@ portainer-update:
 	fi
 
 ## Release and update Portainer stack
-# release-and-deploy: release
-# 	@if [ -z "$(WEBHOOK_URL)" ]; then \
-# 		echo "⚠️ Warning: WEBHOOK_URL not specified, skipping deployment"; \
-# 		echo "To update Portainer stack: make release-and-deploy WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
-# 	else \
-# 		$(MAKE) portainer-update \
-# 	fi
+release-and-deploy: release
+	@if [ -z "$$WEBHOOK_URL" ]; then \
+		echo "⚠️ Warning: WEBHOOK_URL not specified, skipping deployment"; \
+		echo "To update Portainer stack: WEBHOOK_URL=https://... make release-and-deploy"; \
+		echo "See docs/AUTHENTICATION.md for more details"; \
+	else \
+		$(MAKE) portainer-update; \
+	fi
 
+## Shorthand for release and update Portainer stack
 release-port: release portainer-update
 
 
 ## Test the Portainer webhook connection without triggering actual update
 test-webhook:
-	@if [ -z "$(WEBHOOK_URL)" ]; then \
-		echo "❌ Error: WEBHOOK_URL not specified."; \
-		echo "Usage: make test-webhook WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
-		exit 1; \
+	@echo "=== Checking environment variables ==="
+	@if [ -z "$$WEBHOOK_URL" ]; then \
+		if [ ! -f ".env" ]; then \
+			echo "❌ Error: WEBHOOK_URL not provided and .env file not found"; \
+			echo "Usage: make test-webhook WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+			exit 1; \
+		else \
+			echo "❌ Error: WEBHOOK_URL not found in .env file"; \
+			exit 1; \
+		fi; \
 	fi
+	
 	@echo "=== Testing Portainer Webhook Connection ==="
-	@echo "Webhook URL: $(WEBHOOK_URL)"
+	@echo "Webhook URL: $$WEBHOOK_URL"
 	@echo "Testing connectivity to Portainer..."
-	@webhook_host=$$(echo "$(WEBHOOK_URL)" | sed -E 's|https?://([^/]+)/.*|\1|'); \
+	@webhook_host=$$(echo "$$WEBHOOK_URL" | sed -E 's|https?://([^/]+)/.*|\1|'); \
 	echo "Webhook host: $$webhook_host"; \
 	curl -s -o /dev/null -w "HTTP Status: %{http_code}\nResponse time: %{time_total}s\n" \
 		"https://$$webhook_host" || echo "⚠️ Could not connect to Portainer host"
 	@echo ""
 	@echo "To trigger the webhook for real, run:"
-	@echo "  make portainer-update WEBHOOK_URL=$(WEBHOOK_URL)"
+	@echo "  make portainer-update"
 	@echo ""
 	@echo "To see full request/response details:"
-	@echo "  make portainer-update WEBHOOK_URL=$(WEBHOOK_URL) VERBOSE=true"
+	@echo "  make portainer-update VERBOSE=true"
 
 ## Run advanced webhook debugging script
 webhook-debug:
-	@if [ -z "$(WEBHOOK_URL)" ]; then \
-		echo "❌ Error: WEBHOOK_URL not specified."; \
-		echo "Usage: make webhook-debug WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
-		exit 1; \
+	@echo "=== Checking environment variables ==="
+	@if [ -z "$$WEBHOOK_URL" ]; then \
+		if [ ! -f ".env" ]; then \
+			echo "❌ Error: WEBHOOK_URL not provided and .env file not found"; \
+			echo "Usage: make webhook-debug WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"; \
+			exit 1; \
+		else \
+			echo "❌ Error: WEBHOOK_URL not found in .env file"; \
+			exit 1; \
+		fi; \
 	fi
+	
 	@if [ ! -f "scripts/webhook-debug.sh" ]; then \
 		echo "❌ Error: webhook-debug.sh script not found in scripts directory"; \
 		exit 1; \
 	fi
+	
 	@echo "=== Running Advanced Webhook Debugging ==="
 	@chmod +x scripts/webhook-debug.sh
-	@scripts/webhook-debug.sh $(if $(VERBOSE),--verbose,) $(if $(DEBUG),--debug,) "$(WEBHOOK_URL)"
+	@scripts/webhook-debug.sh $(if $(VERBOSE),--verbose,) $(if $(DEBUG),--debug,) \
+		--cf-id "$$CF_ACCESS_CLIENT_ID" --cf-secret "$$CF_ACCESS_CLIENT_SECRET" \
+		"$$WEBHOOK_URL"
 
 ## Show available commands
 help:
@@ -225,12 +245,17 @@ help:
 	@echo "  make release VER=1.2.3        # Build and push a new release"
 	@echo "  make dev                      # Start development server with docker-compose"
 	@echo ""
-	@echo "  # Portainer webhook commands:"
-	@echo "  make portainer-update WEBHOOK_URL=https://...   # Trigger Portainer webhook"
-	@echo "  make test-webhook WEBHOOK_URL=https://...        # Test basic webhook connectivity"
-	@echo "  make webhook-debug WEBHOOK_URL=https://...       # Advanced webhook debugging"
-	@echo "  make portainer-update WEBHOOK_URL=https://... VERBOSE=true   # Show detailed request/response"
-	@echo "  make portainer-update WEBHOOK_URL=https://... DEBUG=true     # Dry-run without sending request"
-	@echo "  make release-and-deploy VER=1.2.3 WEBHOOK_URL=https://...    # Release and update Portainer"
-	@echo "  make test-webhook WEBHOOK_URL=https://...   # Test Portainer webhook connection"
-	@echo "  make webhook-debug WEBHOOK_URL=https://...   # Run advanced webhook debugging script"
+	@echo "  # Portainer webhook commands (Cloudflare Access authentication):"
+	@echo "  # First set environment variables (in .env file or export them):"
+	@echo "  #   WEBHOOK_URL=https://portainer.example.com/api/webhooks/xxxxxxxx"
+	@echo "  #   CF_ACCESS_CLIENT_ID=your_cloudflare_access_client_id"
+	@echo "  #   CF_ACCESS_CLIENT_SECRET=your_cloudflare_access_client_secret"
+	@echo "  # Then run the commands:"
+	@echo "  make portainer-update         # Trigger Portainer webhook"
+	@echo "  make test-webhook             # Test basic webhook connectivity"
+	@echo "  make webhook-debug            # Advanced webhook debugging"
+	@echo "  make portainer-update VERBOSE=true   # Show detailed request/response"
+	@echo "  make portainer-update DEBUG=true     # Dry-run without sending request"
+	@echo "  make release-and-deploy VER=1.2.3    # Release and update Portainer"
+	@echo ""
+	@echo "  # See docs/AUTHENTICATION.md for more information on authentication"

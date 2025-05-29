@@ -127,18 +127,22 @@ class DiscordService {
       console.log(`[DiscordService] Executing command: ${interaction.commandName}`);
 
       try {
-        // Start a non-blocking async job for commands that take longer
+        // Start execution with proper timing measurement
         const startTime = Date.now();
 
         console.log(`[DiscordService] Starting execution of command "${interaction.commandName}"...`);
-        // const success = await command.execute(interaction);
 
-        const success = true;
+        // Execute the command and await its result
+        const success = await command.execute(interaction);
+
         const executionTime = Date.now() - startTime;
 
         console.log(`[DiscordService] Command "${interaction.commandName}" completed in ${executionTime}ms with result: ${success ? 'success' : 'failure'}`);
 
-        await interaction.followUp('testFollowup');
+        // Only followUp if we need additional information after the command completes
+        if (success && interaction.commandName === 'ping') {
+          await interaction.followUp(`Command executed successfully in ${executionTime}ms`);
+        }
 
         if (executionTime > 2000) {
           console.warn(`[DiscordService] WARNING: Command "${interaction.commandName}" took ${executionTime}ms to execute, which may block the gateway task.`);
@@ -242,6 +246,12 @@ class DiscordService {
 
       if (guildIds.length > 0) {
         console.log(`[DiscordService] Registering commands for ${guildIds.length} specific guild(s)...`);
+
+        // Delete global commands
+        data = await rest.put(
+          Routes.applicationCommands(this.client.user.id),
+          { body: this.commandsData },
+        );
 
         // Register commands for each guild
         for (const guildId of guildIds) {
