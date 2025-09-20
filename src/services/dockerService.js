@@ -86,30 +86,35 @@ class DockerService {
   /**
    * Start a container
    * @param {string} id - Container ID or name
-   * @returns {Promise<string>} Command output and status
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
    */
   async dockerCommandStart(id) {
     const output = [];
 
     try {
-      this.logAndOutput(`Attempting to start container: ${id}`, output);
       const container = this.getContainer(id);
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
+
+      // Get the container name for better logging
+      const containerInfo = this.containers.find(c => c.Id === container.id);
+      const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
+
+      this.logAndOutput(`Attempting to start container: ${containerName}`, output);
 
       // Inspect the container before starting
       const inspectData = await container.inspect();
       this.logAndOutput(`Container state before start: ${JSON.stringify(inspectData.State)}`);
 
       if (inspectData.State.Running) {
-        this.logAndOutput(`Container ${id} is already running`, output);
-        return output.join('\n');
+        this.logAndOutput(`Container ${containerName} is already running`, output);
+        return { success: true, output: output.join('\n') };
       }
 
-      this.logAndOutput(`Starting container ${id}...`, output);
+      this.logAndOutput(`Starting container ${containerName}...`, output);
       await container.start();
-      this.logAndOutput(`Start command sent to ${id}`, output);
+      this.logAndOutput(`Start command sent to ${containerName}`, output);
 
       // Inspect the container after starting
       const afterInspect = await container.inspect();
@@ -118,97 +123,117 @@ class DockerService {
       await this.dockerUpdate();
 
       if (afterInspect.State.Running) {
-        this.logAndOutput(`✓ Container ${id} started successfully`, output);
+        this.logAndOutput(`✓ Container ${containerName} started successfully`, output);
+        return { success: true, output: output.join('\n') };
       } else {
-        this.logAndOutput(`✗ Container ${id} failed to start`, output, 'error');
+        this.logAndOutput(`✗ Container ${containerName} failed to start`, output, 'error');
+        return { success: false, output: output.join('\n') };
       }
-
-      return output.join('\n');
     } catch (error) {
       const errorMessage = `Error starting container ${id}: ${error.message}`;
       this.logAndOutput(errorMessage, output, 'error');
-      return output.join('\n');
+      return { success: false, output: output.join('\n') };
     }
   }
 
   /**
    * Stop a container
    * @param {string} id - Container ID or name
-   * @returns {Promise<string>} Command output and status
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
    */
   async dockerCommandStop(id) {
     const output = [];
 
     try {
-      this.logAndOutput(`Attempting to stop container: ${id}`, output);
       const container = this.getContainer(id);
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
 
-      // Check if container is already stopped
+      // Get the container name for better logging
+      const containerInfo = this.containers.find(c => c.Id === container.id);
+      const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
+
+      this.logAndOutput(`Attempting to stop container: ${containerName}`, output);
+
+      // Inspect the container before stopping
       const inspectData = await container.inspect();
+      this.logAndOutput(`Container state before stop: ${JSON.stringify(inspectData.State)}`);
+
       if (!inspectData.State.Running) {
-        this.logAndOutput(`Container ${id} is already stopped`, output);
-        return output.join('\n');
+        this.logAndOutput(`Container ${containerName} is already stopped`, output);
+        return { success: true, output: output.join('\n') };
       }
 
-      this.logAndOutput(`Stopping container ${id}...`, output);
+      this.logAndOutput(`Stopping container ${containerName}...`, output);
       await container.stop();
-      this.logAndOutput(`Stop command sent to ${id}`, output);
+      this.logAndOutput(`Stop command sent to ${containerName}`, output);
+
+      // Inspect the container after stopping
+      const afterInspect = await container.inspect();
+      this.logAndOutput(`Container state after stop: ${JSON.stringify(afterInspect.State)}`);
 
       await this.dockerUpdate();
 
-      // Verify the container is stopped
-      const afterInspect = await container.inspect();
       if (!afterInspect.State.Running) {
-        this.logAndOutput(`✓ Container ${id} stopped successfully`, output);
+        this.logAndOutput(`✓ Container ${containerName} stopped successfully`, output);
+        return { success: true, output: output.join('\n') };
       } else {
-        this.logAndOutput(`✗ Container ${id} failed to stop`, output, 'error');
+        this.logAndOutput(`✗ Container ${containerName} failed to stop`, output, 'error');
+        return { success: false, output: output.join('\n') };
       }
-
-      return output.join('\n');
     } catch (error) {
       const errorMessage = `Error stopping container ${id}: ${error.message}`;
       this.logAndOutput(errorMessage, output, 'error');
-      return output.join('\n');
+      return { success: false, output: output.join('\n') };
     }
   }
 
   /**
    * Restart a container
    * @param {string} id - Container ID or name
-   * @returns {Promise<string>} Command output and status
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
    */
   async dockerCommandRestart(id) {
     const output = [];
 
     try {
-      this.logAndOutput(`Attempting to restart container: ${id}`, output);
       const container = this.getContainer(id);
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
 
-      this.logAndOutput(`Restarting container ${id}...`, output);
+      // Get the container name for better logging
+      const containerInfo = this.containers.find(c => c.Id === container.id);
+      const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
+
+      this.logAndOutput(`Attempting to restart container: ${containerName}`, output);
+
+      // Inspect the container before restarting
+      const inspectData = await container.inspect();
+      this.logAndOutput(`Container state before restart: ${JSON.stringify(inspectData.State)}`);
+
+      this.logAndOutput(`Restarting container ${containerName}...`, output);
       await container.restart();
-      this.logAndOutput(`Restart command sent to ${id}`, output);
+      this.logAndOutput(`Restart command sent to ${containerName}`, output);
+
+      // Inspect the container after restarting
+      const afterInspect = await container.inspect();
+      this.logAndOutput(`Container state after restart: ${JSON.stringify(afterInspect.State)}`);
 
       await this.dockerUpdate();
 
-      // Verify the container is running after restart
-      const afterInspect = await container.inspect();
       if (afterInspect.State.Running) {
-        this.logAndOutput(`✓ Container ${id} restarted successfully`, output);
+        this.logAndOutput(`✓ Container ${containerName} restarted successfully`, output);
+        return { success: true, output: output.join('\n') };
       } else {
-        this.logAndOutput(`✗ Container ${id} failed to restart properly`, output, 'error');
+        this.logAndOutput(`✗ Container ${containerName} failed to restart`, output, 'error');
+        return { success: false, output: output.join('\n') };
       }
-
-      return output.join('\n');
     } catch (error) {
       const errorMessage = `Error restarting container ${id}: ${error.message}`;
       this.logAndOutput(errorMessage, output, 'error');
-      return output.join('\n');
+      return { success: false, output: output.join('\n') };
     }
   }
 
@@ -216,27 +241,31 @@ class DockerService {
    * Execute a command inside a container
    * @param {string} id - Container ID or name
    * @param {string} command - Command to execute
-   * @returns {Promise<string>} Command output with execution details
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
    */
   async dockerCommandExec(id, command) {
     const output = [];
 
     try {
-      this.logAndOutput(`Attempting to execute command in container: ${id}`, output);
-      this.logAndOutput(`Command: ${command}`, output);
-
       const container = this.getContainer(id);
       if (!container) {
         throw new Error(`Container '${id}' not found`);
       }
 
+      // Get the container name for better logging
+      const containerInfo = this.containers.find(c => c.Id === container.id);
+      const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
+
+      this.logAndOutput(`Attempting to execute command in container: ${containerName}`, output);
+      this.logAndOutput(`Command: ${command}`, output);
+
       // Check if container is running
       const inspectData = await container.inspect();
       if (!inspectData.State.Running) {
-        throw new Error(`Container '${id}' is not running`);
+        throw new Error(`Container '${containerName}' is not running`);
       }
 
-      this.logAndOutput(`Executing command in ${id}...`, output);
+      this.logAndOutput(`Executing command in ${containerName}...`, output);
 
       const exec = await container.exec({
         // Use bash for command execution with proper argument parsing
@@ -276,20 +305,20 @@ class DockerService {
         });
       });
 
-      this.logAndOutput(`✓ Command executed successfully in ${id}`, output);
+      this.logAndOutput(`✓ Command executed successfully in ${containerName}`, output);
       this.logAndOutput(`Command output:\n${commandResult}`, output);
 
-      return output.join('\n');
+      return { success: true, output: output.join('\n') };
     } catch (error) {
       const errorMessage = `Error executing command in container ${id}: ${error.message}`;
       this.logAndOutput(errorMessage, output, 'error');
-      return output.join('\n');
+      return { success: false, output: output.join('\n') };
     }
   }
 
   /**
    * Special command for fixing Jellyfin and related services
-   * @returns {Promise<string>} Command output
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
    */
   async dockerCustomCommandJellyfinFix() {
     const output = [];
@@ -305,9 +334,9 @@ class DockerService {
       if (container) {
         this.logAndOutput(`Stopping ${containerName}...`, output);
         const stopResult = await this.dockerCommandStop(container.Id);
-        // stopResult is now a string, so we can include it in our output
-        if (stopResult.includes('Error') || stopResult.includes('✗')) {
-          this.logAndOutput(`Failed to stop ${containerName}: ${stopResult}`, output, 'error');
+        // stopResult is now an object with success and output
+        if (!stopResult.success) {
+          this.logAndOutput(`Failed to stop ${containerName}: ${stopResult.output}`, output, 'error');
         }
       }
     }
@@ -343,9 +372,9 @@ class DockerService {
     const jellyfin = this.getContainerByName('jellyfin');
     if (jellyfin) {
       const startResult = await this.dockerCommandStart(jellyfin.Id);
-      if (startResult.includes('Error') || startResult.includes('✗')) {
-        this.logAndOutput(`Failed to start Jellyfin: ${startResult}`, output, 'error');
-        return output.join('\n');
+      if (!startResult.success) {
+        this.logAndOutput(`Failed to start Jellyfin: ${startResult.output}`, output, 'error');
+        return { success: false, output: output.join('\n') };
       }
 
       // Wait for Jellyfin to start with retries
@@ -367,11 +396,11 @@ class DockerService {
 
       if (!jellyfinStarted) {
         this.logAndOutput('Failed to start Jellyfin after retries.', output, 'error');
-        return output.join('\n');
+        return { success: false, output: output.join('\n') };
       }
     } else {
       this.logAndOutput('Jellyfin container not found.', output, 'error');
-      return output.join('\n');
+      return { success: false, output: output.join('\n') };
     }
 
     // Wait additional time for Jellyfin to fully initialize
@@ -386,8 +415,8 @@ class DockerService {
       if (container) {
         this.logAndOutput(`Starting ${containerName}...`, output);
         const startResult = await this.dockerCommandStart(container.Id);
-        if (startResult.includes('Error') || startResult.includes('✗')) {
-          this.logAndOutput(`Failed to start ${containerName}: ${startResult}`, output, 'error');
+        if (!startResult.success) {
+          this.logAndOutput(`Failed to start ${containerName}: ${startResult.output}`, output, 'error');
         }
       }
     }
@@ -407,18 +436,13 @@ class DockerService {
 
     if (allRunning) {
       this.logAndOutput('✓ All containers are running successfully.', output);
+      return { success: true, output: output.join('\n') };
     } else {
       this.logAndOutput('✗ Not all containers are running. jfFix may not have succeeded completely.', output, 'warn');
+      return { success: false, output: output.join('\n') };
     }
-
-    return output.join('\n');
   }
 
-  /**
-   * Helper to get container by name
-   * @param {string} name - Container name
-   * @returns {Object|null} Container object or null
-   */
   /**
    * Helper to get container by name
    * @param {string} name - Container name
