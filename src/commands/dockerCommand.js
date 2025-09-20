@@ -123,15 +123,18 @@ module.exports = {
       try {
         switch (command) {
         case 'start': {
-          await dockerService.dockerCommandStart(dockerId);
+          const result = await dockerService.dockerCommandStart(dockerId);
+          await interaction.editReply(`Start command executed:\n\`\`\`\n${result}\n\`\`\``);
           break;
         }
         case 'stop': {
-          await dockerService.dockerCommandStop(dockerId);
+          const result = await dockerService.dockerCommandStop(dockerId);
+          await interaction.editReply(`Stop command executed:\n\`\`\`\n${result}\n\`\`\``);
           break;
         }
         case 'restart': {
-          await dockerService.dockerCommandRestart(dockerId);
+          const result = await dockerService.dockerCommandRestart(dockerId);
+          await interaction.editReply(`Restart command executed:\n\`\`\`\n${result}\n\`\`\``);
           break;
         }
         case 'exec': {
@@ -141,67 +144,12 @@ module.exports = {
           }
           console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
           const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
-          await interaction.editReply(`${interaction.user} Response from Script (Stdout): \n${result}`);
+          await interaction.editReply(`Exec command executed:\n\`\`\`\n${result}\n\`\`\``);
           return true;
         }
         }
 
-        await interaction.editReply(`Command has been sent. Awaiting response. This will take up to ${settings.DockerSettings.Retries * settings.DockerSettings.TimeBeforeRetry} seconds.`);
-
-        // Poll for container status change
-        console.log(`[DockerCommand] Polling for status change (${settings.DockerSettings.Retries} retries)...`);
-        for (let i = 0; i < settings.DockerSettings.Retries; i++) {
-          await new Promise(resolve => setTimeout(resolve, settings.DockerSettings.TimeBeforeRetry * 1000));
-
-          // Single dockerUpdate call instead of two
-          const updatedContainers = await dockerService.dockerUpdate();
-          const updatedContainer = updatedContainers.find(c => c.Id === dockerId);
-
-          if (!updatedContainer) {
-            console.log(`[DockerCommand] Cannot find container ${dockerId} after update (retry ${i + 1})`);
-            continue;
-          }
-
-          console.log(`[DockerCommand] Updated container state: ${updatedContainer.State}, Status: ${updatedContainer.Status}`);
-          const newStatus = updatedContainer.State === 'running';
-
-          if ((command === 'start' || command === 'restart') && newStatus) {
-            console.log(`[DockerCommand] Container ${dockerName} successfully ${command === 'start' ? 'started' : 'restarted'}`);
-            await interaction.editReply(`${interaction.user} ${dockerName} has been ${command === 'start' ? 'started' : 'restarted'}`);
-            return true;
-          } else if (command === 'stop' && !newStatus) {
-            console.log(`[DockerCommand] Container ${dockerName} successfully stopped`);
-            await interaction.editReply(`${interaction.user} ${dockerName} has been stopped`);
-            return true;
-          }
-        }
-
-        // Final check after all retries
-        console.log('[DockerCommand] Performing final status check...');
-        const finalContainers = await dockerService.dockerUpdate();
-        const finalContainer = finalContainers.find(c => c.Id === dockerId);
-
-        if (finalContainer) {
-          const finalStatus = finalContainer.State === 'running';
-
-          if ((command === 'start' || command === 'restart') && finalStatus) {
-            console.log(`[DockerCommand] Final check: Container ${dockerName} is running`);
-            await interaction.editReply(`${interaction.user} ${dockerName} has been ${command === 'start' ? 'started' : 'restarted'}`);
-            return true;
-          } else if (command === 'stop' && !finalStatus) {
-            console.log(`[DockerCommand] Final check: Container ${dockerName} is stopped`);
-            await interaction.editReply(`${interaction.user} ${dockerName} has been stopped`);
-            return true;
-          } else {
-            console.log(`[DockerCommand] Final check: Container ${dockerName} operation may have failed`);
-            await interaction.editReply(`${interaction.user} ${dockerName} could not be ${command}ed`);
-            return false;
-          }
-        } else {
-          console.log(`[DockerCommand] Final check: Container ${dockerName} not found`);
-          await interaction.editReply(`${interaction.user} ${dockerName} could not be found after command execution`);
-          return false;
-        }
+        return true;
       } catch (error) {
         console.error('[DockerCommand] Error executing docker command:', error);
         await interaction.editReply(`Error executing command: ${error.message}`);

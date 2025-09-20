@@ -119,6 +119,44 @@ clean:
 -include .env
 export
 
+## Trigger Portainer webhook to update a stack (local network - no Cloudflare Access)
+portainer-update-local:
+	@echo "=== Checking environment variables ==="
+	@if [ -z "$$WEBHOOK_URL_LOCAL" ]; then \
+		if [ ! -f ".env" ]; then \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not provided and .env file not found"; \
+			echo "Either provide WEBHOOK_URL_LOCAL directly or create a .env file"; \
+			echo "Usage: make portainer-update-local WEBHOOK_URL_LOCAL=http://192.168.1.100:9000/api/webhooks/xxxxxxxx"; \
+			exit 1; \
+		else \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not found in .env file"; \
+			exit 1; \
+		fi; \
+	fi
+	
+	@echo "=== Triggering Local Portainer Webhook ==="
+	@echo "Local Webhook URL: $$WEBHOOK_URL_LOCAL"
+	
+	@if [ "$(DEBUG)" = "true" ]; then \
+		echo "🔍 DEBUG MODE: Not sending actual request"; \
+		echo "Would execute: curl -k -X POST $$WEBHOOK_URL_LOCAL"; \
+		exit 0; \
+	fi
+	
+	@if [ "$(VERBOSE)" = "true" ]; then \
+		echo "🔍 Running in verbose mode"; \
+		curl -k -X POST "$$WEBHOOK_URL_LOCAL" \
+			-H "Content-Type: application/json" \
+			-v; \
+		echo ""; \
+	else \
+		curl -k -X POST "$$WEBHOOK_URL_LOCAL" \
+			-H "Content-Type: application/json" \
+			--fail --show-error && \
+			echo "✅ Local Portainer webhook triggered successfully" || \
+			echo "❌ Failed to trigger local Portainer webhook"; \
+	fi
+
 ## Trigger Portainer webhook to update a stack
 portainer-update:
 	@echo "=== Checking environment variables ==="
@@ -179,6 +217,37 @@ release-and-deploy: release
 ## Shorthand for release and update Portainer stack
 release-port: release portainer-update
 
+## Shorthand for release and update Portainer stack (local network)
+release-port-local: release portainer-update-local
+
+
+## make the local Portainer webhook connection without triggering actual update
+test-webhook-local:
+	@echo "=== Checking environment variables ==="
+	@if [ -z "$$WEBHOOK_URL_LOCAL" ]; then \
+		if [ ! -f ".env" ]; then \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not provided and .env file not found"; \
+			echo "Usage: make test-webhook-local WEBHOOK_URL_LOCAL=http://192.168.1.100:9000/api/webhooks/xxxxxxxx"; \
+			exit 1; \
+		else \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not found in .env file"; \
+			exit 1; \
+		fi; \
+	fi
+	
+	@echo "=== Testing Local Portainer Webhook Connection ==="
+	@echo "Local Webhook URL: $$WEBHOOK_URL_LOCAL"
+	@echo "Testing connectivity to local Portainer..."
+	@webhook_host=$$(echo "$$WEBHOOK_URL_LOCAL" | sed -E 's|https?://([^/]+)/.*|\1|'); \
+	echo "Webhook host: $$webhook_host"; \
+	curl -s -o /dev/null -w "HTTP Status: %{http_code}\nResponse time: %{time_total}s\n" \
+		"http://$$webhook_host" || echo "⚠️ Could not connect to local Portainer host"
+	@echo ""
+	@echo "To trigger the local webhook for real, run:"
+	@echo "  make portainer-update-local"
+	@echo ""
+	@echo "To see full request/response details:"
+	@echo "  make portainer-update-local VERBOSE=true"
 
 ## Test the Portainer webhook connection without triggering actual update
 test-webhook:
@@ -257,5 +326,14 @@ help:
 	@echo "  make portainer-update VERBOSE=true   # Show detailed request/response"
 	@echo "  make portainer-update DEBUG=true     # Dry-run without sending request"
 	@echo "  make release-and-deploy VER=1.2.3    # Release and update Portainer"
+	@echo "  make release-port VER=1.2.3          # Release and update Portainer (shorthand)"
+	@echo ""
+	@echo "  # Local network Portainer webhook commands (no authentication required):"
+	@echo "  # Set WEBHOOK_URL_LOCAL in .env file or export it:"
+	@echo "  #   WEBHOOK_URL_LOCAL=http://192.168.1.100:9000/api/webhooks/xxxxxxxx"
+	@echo "  # Then run the commands:"
+	@echo "  make portainer-update-local   # Trigger local Portainer webhook"
+	@echo "  make test-webhook-local       # Test local webhook connectivity"
+	@echo "  make release-port-local VER=1.2.3    # Release and update local Portainer"
 	@echo ""
 	@echo "  # See docs/AUTHENTICATION.md for more information on authentication"
