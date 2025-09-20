@@ -15,6 +15,32 @@ class DockerService {
   }
 
   /**
+   * Helper method to log messages and optionally add to output array
+   * @param {string} message - Message to log
+   * @param {Array} outputArray - Optional output array to append to
+   * @param {string} level - Log level: 'log', 'error', 'warn'
+   */
+  logAndOutput(message, outputArray = null, level = 'log') {
+    // Log to console
+    switch (level) {
+      case 'error':
+        console.error(`[DockerService] ${message}`);
+        break;
+      case 'warn':
+        console.warn(`[DockerService] ${message}`);
+        break;
+      default:
+        console.log(`[DockerService] ${message}`);
+        break;
+    }
+
+    // Add to output array if provided
+    if (outputArray && Array.isArray(outputArray)) {
+      outputArray.push(message);
+    }
+  }
+
+  /**
    * Initialize the Docker service
    */
   async init() {
@@ -90,7 +116,8 @@ class DockerService {
       await this.dockerUpdate();
       return afterInspect.State.Running;
     } catch (error) {
-      console.error(`Error starting container ${id}: ${error.message}`);
+      const errorMessage = `Error starting container ${id}: ${error.message}`;
+      this.logAndOutput(errorMessage, null, 'error');
       return false;
     }
   }
@@ -111,7 +138,8 @@ class DockerService {
       await this.dockerUpdate();
       return true;
     } catch (error) {
-      console.error(`Error stopping container ${id}: ${error.message}`);
+      const errorMessage = `Error stopping container ${id}: ${error.message}`;
+      this.logAndOutput(errorMessage, null, 'error');
       return false;
     }
   }
@@ -201,26 +229,25 @@ class DockerService {
     const output = [];
     const containers = ['jellyfin', 'jellystat', 'jellystat-db'];
 
-    console.log('Containers to restart:', containers.join(', '));
+    this.logAndOutput(`Containers to restart: ${containers.join(', ')}`, output);
 
     // Stop containers
-    console.log('Stopping containers...');
-    output.push('Stopping containers...');
+    this.logAndOutput('Stopping containers...', output);
 
     for (const containerName of containers) {
       const container = this.getContainerByName(containerName);
       if (container) {
-        console.log(`Stopping ${containerName}...`);
+        this.logAndOutput(`Stopping ${containerName}...`, output);
         await this.dockerCommandStop(container.Id);
       }
     }
 
     // Wait for containers to stop with retries
-    console.log('Waiting for containers to stop...');
+    this.logAndOutput('Waiting for containers to stop...', output);
     let allStopped = false;
 
     for (let i = 0; i < this.settings.DockerSettings.Retries; i++) {
-      console.log(`Retry ${i + 1}/${this.settings.DockerSettings.Retries} - Checking container status...`);
+      this.logAndOutput(`Retry ${i + 1}/${this.settings.DockerSettings.Retries} - Checking container status...`);
       await new Promise(resolve => setTimeout(resolve, this.settings.DockerSettings.TimeBeforeRetry * 1000));
       await this.dockerUpdate();
 
@@ -228,69 +255,62 @@ class DockerService {
       for (const containerName of containers) {
         const container = this.getContainerByName(containerName);
         if (container && container.State === 'running') {
-          console.log(`${containerName} is still running... (State: ${container.State}, Status: ${container.Status})`);
+          this.logAndOutput(`${containerName} is still running... (State: ${container.State}, Status: ${container.Status})`);
           allStopped = false;
           break;
         }
       }
 
       if (allStopped) {
-        console.log('All containers stopped successfully.');
-        output.push('All containers stopped successfully.');
+        this.logAndOutput('All containers stopped successfully.', output);
         break;
       }
     }
 
     // Start Jellyfin first
-    console.log('Starting Jellyfin...');
-    output.push('Starting Jellyfin...');
+    this.logAndOutput('Starting Jellyfin...', output);
 
     const jellyfin = this.getContainerByName('jellyfin');
     if (jellyfin) {
       await this.dockerCommandStart(jellyfin.Id);
 
       // Wait for Jellyfin to start with retries
-      console.log('Waiting for Jellyfin to start...');
+      this.logAndOutput('Waiting for Jellyfin to start...', output);
       let jellyfinStarted = false;
 
       for (let i = 0; i < this.settings.DockerSettings.Retries; i++) {
-        console.log(`Retry ${i + 1}/${this.settings.DockerSettings.Retries} - Checking Jellyfin status...`);
+        this.logAndOutput(`Retry ${i + 1}/${this.settings.DockerSettings.Retries} - Checking Jellyfin status...`);
         await new Promise(resolve => setTimeout(resolve, this.settings.DockerSettings.TimeBeforeRetry * 1000));
         await this.dockerUpdate();
 
         const updatedJellyfin = this.getContainerByName('jellyfin');
         if (updatedJellyfin && updatedJellyfin.State === 'running') {
-          console.log('Jellyfin started successfully.');
-          output.push('Jellyfin started successfully.');
+          this.logAndOutput('Jellyfin started successfully.', output);
           jellyfinStarted = true;
           break;
         }
       }
 
       if (!jellyfinStarted) {
-        console.log('Failed to start Jellyfin.');
-        output.push('Failed to start Jellyfin.');
+        this.logAndOutput('Failed to start Jellyfin.', output, 'error');
         return output.join('\n');
       }
     } else {
-      console.log('Jellyfin container not found.');
-      output.push('Jellyfin container not found.');
+      this.logAndOutput('Jellyfin container not found.', output, 'error');
       return output.join('\n');
     }
 
     // Wait additional time for Jellyfin to fully initialize
-    console.log('Waiting for Jellyfin to initialize...');
-    output.push('Waiting for Jellyfin to initialize...');
+    this.logAndOutput('Waiting for Jellyfin to initialize...', output);
     await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
 
     // Start remaining containers
-    console.log('Starting remaining containers...');
-    output.push('Starting remaining containers...');
+    this.logAndOutput('Starting remaining containers...', output);
 
     for (const containerName of ['jellystat-db', 'jellystat']) {
       const container = this.getContainerByName(containerName);
       if (container) {
-        console.log(`Starting ${containerName}...`);
+        this.logAndOutput(`Starting ${containerName}...`, output);
         await this.dockerCommandStart(container.Id);
       }
     }
@@ -303,18 +323,15 @@ class DockerService {
     for (const containerName of containers) {
       const container = this.getContainerByName(containerName);
       if (!container || container.State !== 'running') {
-        console.log(`${containerName} is not running.`);
-        output.push(`${containerName} is not running.`);
+        this.logAndOutput(`${containerName} is not running.`, output, 'warn');
         allRunning = false;
       }
     }
 
     if (allRunning) {
-      console.log('All containers are running successfully.');
-      output.push('All containers are running successfully.');
+      this.logAndOutput('All containers are running successfully.', output);
     } else {
-      console.log('Not all containers are running. jfFix may not have succeeded completely.');
-      output.push('Not all containers are running. jfFix may not have succeeded completely.');
+      this.logAndOutput('Not all containers are running. jfFix may not have succeeded completely.', output, 'warn');
     }
 
     return output.join('\n');
