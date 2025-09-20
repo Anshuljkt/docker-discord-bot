@@ -197,9 +197,11 @@ class DockerService {
    * Special command for fixing Jellyfin and related services
    * @returns {Promise<string>} Command output
    */
-  async dockerCustomCommandJFFix() {
+  async dockerCustomCommandJellyfinFix() {
     const output = [];
     const containers = ['jellyfin', 'jellystat', 'jellystat-db'];
+
+    console.log('Containers to restart:', containers.join(', '));
 
     // Stop containers
     console.log('Stopping containers...');
@@ -311,8 +313,8 @@ class DockerService {
       console.log('All containers are running successfully.');
       output.push('All containers are running successfully.');
     } else {
-      console.log('Not all containers are running. JF Fix may not have succeeded completely.');
-      output.push('Not all containers are running. JF Fix may not have succeeded completely.');
+      console.log('Not all containers are running. jfFix may not have succeeded completely.');
+      output.push('Not all containers are running. jfFix may not have succeeded completely.');
     }
 
     return output.join('\n');
