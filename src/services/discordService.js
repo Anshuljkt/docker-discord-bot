@@ -231,7 +231,37 @@ class DiscordService {
     try {
       const rest = new REST().setToken(this.settings.DiscordSettings.Token);
 
-      console.log(`[DiscordService] Started refreshing ${this.commandsData.length} application (/) commands.`);
+      // Get guild IDs from settings
+      const guildIds = this.settings.DiscordSettings.GuildIDs || [];
+
+      let data;
+
+      // First, delete all existing commands to ensure clean state
+      console.log('[DiscordService] Deleting all existing commands...');
+      
+      // Delete global commands
+      try {
+        console.log('[DiscordService] Deleting global commands...');
+        await rest.put(Routes.applicationCommands(this.client.user.id), { body: [] });
+        console.log('[DiscordService] ✓ Successfully deleted all global commands');
+      } catch (deleteError) {
+        console.error('[DiscordService] Error deleting global commands:', deleteError);
+      }
+
+      // Delete guild commands for all configured guilds
+      if (guildIds.length > 0) {
+        for (const guildId of guildIds) {
+          try {
+            console.log(`[DiscordService] Deleting guild commands for guild ${guildId}...`);
+            await rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: [] });
+            console.log(`[DiscordService] ✓ Successfully deleted all commands for guild ${guildId}`);
+          } catch (deleteError) {
+            console.error(`[DiscordService] Error deleting commands for guild ${guildId}:`, deleteError);
+          }
+        }
+      }
+
+      console.log(`[DiscordService] Started registering ${this.commandsData.length} application (/) commands.`);
       console.log(`[DiscordService] Bot User ID: ${this.client.user.id}`);
 
       // Log each command being registered
@@ -239,28 +269,14 @@ class DiscordService {
         console.log(`[DiscordService] Command ${index + 1}: ${cmd.name} - ${cmd.description}`);
       });
 
-      // Get guild IDs from settings
-      const guildIds = this.settings.DiscordSettings.GuildIDs || [];
-
-      let data;
-
+      // Now register new commands
       if (guildIds.length > 0) {
         console.log(`[DiscordService] Registering commands for ${guildIds.length} specific guild(s)...`);
-
-        // Delete global commands
-        data = await rest.put(
-          Routes.applicationCommands(this.client.user.id),
-          { body: this.commandsData },
-        );
 
         // Register commands for each guild
         for (const guildId of guildIds) {
           console.log(`[DiscordService] Registering commands for guild ${guildId}...`);
           try {
-            rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: [] })
-              .then(() => console.log('Successfully deleted all guild commands.'))
-              .catch(console.error);
-
             const guildData = await rest.put(
               Routes.applicationGuildCommands(this.client.user.id, guildId),
               { body: this.commandsData },

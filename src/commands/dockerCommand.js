@@ -10,12 +10,6 @@ module.exports = {
     .setDescription('Issue a command to Docker')
     .addStringOption(option =>
       option
-        .setName('dockername')
-        .setDescription('Choose a container')
-        .setRequired(false),
-    )
-    .addStringOption(option =>
-      option
         .setName('command')
         .setDescription('Choose a command')
         .setRequired(true)
@@ -26,6 +20,12 @@ module.exports = {
           { name: 'Execute', value: 'exec' },
           { name: 'jfFix', value: 'jfFix' },
         ),
+    )
+    .addStringOption(option =>
+      option
+        .setName('dockername')
+        .setDescription('Choose a container')
+        .setRequired(false),
     )
     .addStringOption(option =>
       option
