@@ -108,8 +108,14 @@ module.exports = {
           // Run the long operation and wait for it
           const result = await dockerService.dockerCustomCommandJellyfinFix();
           console.log('[DockerCommand] jfFix completed successfully');
-          await interaction.followUp(`jfFix completed:\n\`\`\`\n${result}\n\`\`\``);
-          return true;
+          
+          // Check if operation was successful using structured response
+          if (result.success) {
+            await interaction.followUp(`jfFix completed successfully:\n\`\`\`\n${result.output}\n\`\`\``);
+          } else {
+            await interaction.followUp(`jfFix completed with issues:\n\`\`\`\n${result.output}\n\`\`\``);
+          }
+          return result.success;
         } catch (error) {
           console.error('[DockerCommand] jfFix failed:', error);
           await interaction.followUp(`Error during jfFix: ${error.message}`);
@@ -124,17 +130,35 @@ module.exports = {
         switch (command) {
         case 'start': {
           const result = await dockerService.dockerCommandStart(dockerId);
-          await interaction.editReply(`Start command executed:\n\`\`\`\n${result}\n\`\`\``);
+          
+          // Check if operation was successful using structured response
+          if (result.success) {
+            await interaction.editReply(`${interaction.user} ${dockerName} has been started\n\n**Details:**\n\`\n${result.output}\n\``);
+          } else {
+            await interaction.editReply(`Failed to start ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+          }
           break;
         }
         case 'stop': {
           const result = await dockerService.dockerCommandStop(dockerId);
-          await interaction.editReply(`Stop command executed:\n\`\`\`\n${result}\n\`\`\``);
+          
+          // Check if operation was successful using structured response
+          if (result.success) {
+            await interaction.editReply(`${interaction.user} ${dockerName} has been stopped\n\n**Details:**\n\`\n${result.output}\n\``);
+          } else {
+            await interaction.editReply(`Failed to stop ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+          }
           break;
         }
         case 'restart': {
           const result = await dockerService.dockerCommandRestart(dockerId);
-          await interaction.editReply(`Restart command executed:\n\`\`\`\n${result}\n\`\`\``);
+          
+          // Check if operation was successful using structured response
+          if (result.success) {
+            await interaction.editReply(`${interaction.user} ${dockerName} has been restarted\n\n**Details:**\n\`\n${result.output}\n\``);
+          } else {
+            await interaction.editReply(`Failed to restart ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+          }
           break;
         }
         case 'exec': {
@@ -144,7 +168,13 @@ module.exports = {
           }
           console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
           const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
-          await interaction.editReply(`Exec command executed:\n\`\`\`\n${result}\n\`\`\``);
+          
+          // For exec, always show the detailed output since that's what users want to see
+          if (result.success) {
+            await interaction.editReply(`${interaction.user} Command executed in ${dockerName}\n\n**Output:**\n\`\`\`\n${result.output}\n\`\`\``);
+          } else {
+            await interaction.editReply(`Failed to execute command in ${dockerName}\n\n**Details:**\n\`\`\`\n${result.output}\n\`\`\``);
+          }
           return true;
         }
         }
