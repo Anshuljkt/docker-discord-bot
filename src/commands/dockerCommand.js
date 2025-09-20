@@ -99,26 +99,44 @@ module.exports = {
         return true;
       }
 
-      // Handle the jfFix command separately with non-blocking execution
+      // Handle the jfFix command separately with real-time updates
       if (command === 'jfFix') {
         console.log('[DockerCommand] Starting jfFix process...');
-        await interaction.editReply('Starting jfFix process. This may take several minutes...');
+        await interaction.editReply('Starting jfFix process. This may take several minutes...\n\n```\nInitializing...\n```');
 
         try {
-          // Run the long operation and wait for it
-          const result = await dockerService.dockerCustomCommandJellyfinFix();
+          let lastUpdate = Date.now();
+          const updateInterval = 3000; // Update every 3 seconds
+          
+          // Progress callback for real-time updates
+          const progressCallback = async (currentOutput) => {
+            const now = Date.now();
+            // Only update if enough time has passed to avoid rate limiting
+            if (now - lastUpdate >= updateInterval) {
+              try {
+                await interaction.editReply(`jfFix in progress...\n\n\`\`\`\n${currentOutput}\n\`\`\``);
+                lastUpdate = now;
+              } catch (editError) {
+                // If edit fails (maybe due to rate limiting), just log it and continue
+                console.warn('[DockerCommand] Failed to update progress:', editError.message);
+              }
+            }
+          };
+
+          // Run the long operation with progress updates
+          const result = await dockerService.dockerCustomCommandJellyfinFix(progressCallback);
           console.log('[DockerCommand] jfFix completed successfully');
           
-          // Check if operation was successful using structured response
+          // Final update with completion status
           if (result.success) {
-            await interaction.followUp(`jfFix completed successfully:\n\`\`\`\n${result.output}\n\`\`\``);
+            await interaction.editReply(`✅ jfFix completed successfully!\n\n\`\`\`\n${result.output}\n\`\`\``);
           } else {
-            await interaction.followUp(`jfFix completed with issues:\n\`\`\`\n${result.output}\n\`\`\``);
+            await interaction.editReply(`⚠️ jfFix completed with issues:\n\n\`\`\`\n${result.output}\n\`\`\``);
           }
           return result.success;
         } catch (error) {
           console.error('[DockerCommand] jfFix failed:', error);
-          await interaction.followUp(`Error during jfFix: ${error.message}`);
+          await interaction.editReply(`❌ Error during jfFix: ${error.message}`);
           return false;
         }
       }
