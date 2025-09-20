@@ -19,6 +19,8 @@ module.exports = {
           { name: 'Restart', value: 'restart' },
           { name: 'Execute', value: 'exec' },
           { name: 'jfFix', value: 'jfFix' },
+          { name: 'Ban IP', value: 'banIP' },
+          { name: 'Unban IP', value: 'unbanIP' },
         ),
     )
     .addStringOption(option =>
@@ -31,6 +33,12 @@ module.exports = {
       option
         .setName('cli')
         .setDescription('Command to execute in the container')
+        .setRequired(false),
+    )
+    .addStringOption(option =>
+      option
+        .setName('ip')
+        .setDescription('IP address to ban/unban (for Fail2Ban commands)')
         .setRequired(false),
     ),
 
@@ -52,13 +60,24 @@ module.exports = {
       const command = interaction.options.getString('command');
       let dockerName = interaction.options.getString('dockername');
       const cliCommand = interaction.options.getString('cli');
+      const ipAddress = interaction.options.getString('ip');
 
-      console.log(`[DockerCommand] Command: ${command}, Container: ${dockerName}, CLI: ${cliCommand || 'N/A'}`);
+      console.log(`[DockerCommand] Command: ${command}, Container: ${dockerName}, CLI: ${cliCommand || 'N/A'}, IP: ${ipAddress || 'N/A'}`);
 
       // Special case for jfFix command
       if (command === 'jfFix') {
         dockerName = 'jellyfin';
         console.log('[DockerCommand] jfFix command - targeting jellyfin container');
+      }
+
+      // Special case for banIP/unbanIP commands
+      if (command === 'banIP' || command === 'unbanIP') {
+        if (!ipAddress) {
+          await interaction.editReply(`IP address is required for ${command} command`);
+          return false;
+        }
+        dockerName = 'fail2ban';
+        console.log(`[DockerCommand] ${command} command - targeting fail2ban container for IP: ${ipAddress}`);
       }
 
       // Check authorization
@@ -137,6 +156,36 @@ module.exports = {
         } catch (error) {
           console.error('[DockerCommand] jfFix failed:', error);
           await interaction.editReply(`❌ Error during jfFix: ${error.message}`);
+          return false;
+        }
+      }
+
+      // Handle ban/unban IP commands with shared logic
+      if (command === 'banIP' || command === 'unbanIP') {
+        const action = command === 'banIP' ? 'ban' : 'unban';
+        const actionPast = command === 'banIP' ? 'banned' : 'unbanned';
+        const actionGerund = command === 'banIP' ? 'Banning' : 'Unbanning';
+        
+        console.log(`[DockerCommand] Starting ${command} process for IP: ${ipAddress}`);
+        await interaction.editReply(`${actionGerund} IP address: ${ipAddress}...\n\n\`\`\`\nExecuting fail2ban-client ${action} command...\n\`\`\``);
+
+        try {
+          // Run the ban/unban operation using the generic method
+          const result = command === 'banIP' 
+            ? await dockerService.dockerCustomCommandBanIP(ipAddress)
+            : await dockerService.dockerCustomCommandUnbanIP(ipAddress);
+          console.log(`[DockerCommand] ${command} completed`);
+          
+          // Update with completion status
+          if (result.success) {
+            await interaction.editReply(`✅ Successfully ${actionPast} IP: ${ipAddress}\n\n\`\`\`\n${result.output}\n\`\`\``);
+          } else {
+            await interaction.editReply(`❌ Failed to ${action} IP: ${ipAddress}\n\n\`\`\`\n${result.output}\n\`\`\``);
+          }
+          return result.success;
+        } catch (error) {
+          console.error(`[DockerCommand] ${command} failed:`, error);
+          await interaction.editReply(`❌ Error during ${command}: ${error.message}`);
           return false;
         }
       }
@@ -243,7 +292,7 @@ module.exports = {
           settings.DiscordSettings.UserStartPermissions[userId].includes(dockerName)) {
         return true;
       }
-    } else if (['stop', 'restart', 'exec', 'jfFix'].includes(command)) {
+    } else if (['stop', 'restart', 'exec', 'jfFix', 'banIP', 'unbanIP'].includes(command)) {
       if (settings.DiscordSettings.UserStopPermissions[userId] &&
           settings.DiscordSettings.UserStopPermissions[userId].includes(dockerName)) {
         return true;
@@ -259,7 +308,7 @@ module.exports = {
           return true;
         }
       }
-    } else if (['stop', 'restart', 'exec', 'jfFix'].includes(command)) {
+    } else if (['stop', 'restart', 'exec', 'jfFix', 'banIP', 'unbanIP'].includes(command)) {
       for (const [roleId, containers] of Object.entries(settings.DiscordSettings.RoleStopPermissions)) {
         if (userRoles.has(roleId) && containers.includes(dockerName)) {
           return true;
