@@ -12,7 +12,7 @@ module.exports = {
       option
         .setName('dockername')
         .setDescription('Choose a container')
-        .setRequired(true),
+        .setRequired(false),
     )
     .addStringOption(option =>
       option
@@ -24,7 +24,7 @@ module.exports = {
           { name: 'Stop', value: 'stop' },
           { name: 'Restart', value: 'restart' },
           { name: 'Execute', value: 'exec' },
-          { name: 'JF Fix', value: 'jfFix' },
+          { name: 'jfFix', value: 'jfFix' },
         ),
     )
     .addStringOption(option =>
@@ -58,7 +58,7 @@ module.exports = {
       // Special case for jfFix command
       if (command === 'jfFix') {
         dockerName = 'jellyfin';
-        console.log('[DockerCommand] JF Fix command - targeting jellyfin container');
+        console.log('[DockerCommand] jfFix command - targeting jellyfin container');
       }
 
       // Check authorization
@@ -101,18 +101,18 @@ module.exports = {
 
       // Handle the jfFix command separately with non-blocking execution
       if (command === 'jfFix') {
-        console.log('[DockerCommand] Starting JF Fix process...');
-        await interaction.editReply('Starting JF Fix process. This may take several minutes...');
+        console.log('[DockerCommand] Starting jfFix process...');
+        await interaction.editReply('Starting jfFix process. This may take several minutes...');
 
         try {
           // Run the long operation and wait for it
-          const result = await dockerService.dockerCustomCommandJFFix();
-          console.log('[DockerCommand] JF Fix completed successfully');
-          await interaction.followUp(`JF Fix completed:\n\`\`\`\n${result}\n\`\`\``);
+          const result = await dockerService.dockerCustomCommandJellyfinFix();
+          console.log('[DockerCommand] jfFix completed successfully');
+          await interaction.followUp(`jfFix completed:\n\`\`\`\n${result}\n\`\`\``);
           return true;
         } catch (error) {
-          console.error('[DockerCommand] JF Fix failed:', error);
-          await interaction.followUp(`Error during JF Fix: ${error.message}`);
+          console.error('[DockerCommand] jfFix failed:', error);
+          await interaction.followUp(`Error during jfFix: ${error.message}`);
           return false;
         }
       }

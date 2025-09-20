@@ -5,10 +5,10 @@ A Discord bot to control Docker containers, written in JavaScript with Discord.j
 ## Features
 
 - Start, stop, and restart Docker containers via Discord commands
-- Execute commands inside containers
+- Execute CLI commands inside containers
 - List all containers with their status
 - Role and user-based permissions system
-- Special JF Fix command for Jellyfin-related services
+- Special Jellyfin command for Restarting Jellyfin, Jellystat to mitigate the Thread Pool Starvation Issue (https://github.com/CyferShepard/Jellystat/issues/328), (https://github.com/jellyfin/jellyfin/issues/13377)
 
 ## Installation
 
