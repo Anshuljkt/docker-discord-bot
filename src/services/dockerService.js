@@ -453,6 +453,88 @@ class DockerService {
   }
 
   /**
+   * Execute a fail2ban command (ban or unban) on an IP address
+   * @param {string} action - Action to perform ('ban' or 'unban')
+   * @param {string} ipAddress - IP address to ban/unban
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
+   */
+  async dockerCustomCommandFail2Ban(action, ipAddress) {
+    const output = [];
+
+    try {
+      // IP address validation for both IPv4 and IPv6
+      const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$|^(?:[0-9a-fA-F]{1,4}:)*::[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*$|^(?:[0-9a-fA-F]{1,4}:)*:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*$|^::ffff:(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      
+      const isValidIPv4 = ipv4Regex.test(ipAddress);
+      const isValidIPv6 = ipv6Regex.test(ipAddress);
+      
+      if (!isValidIPv4 && !isValidIPv6) {
+        throw new Error(`Invalid IP address format: ${ipAddress}. Must be a valid IPv4 or IPv6 address.`);
+      }
+
+      // Validate action
+      if (!['ban', 'unban'].includes(action)) {
+        throw new Error(`Invalid action: ${action}. Must be 'ban' or 'unban'.`);
+      }
+
+      const ipType = isValidIPv4 ? 'IPv4' : 'IPv6';
+      this.logAndOutput(`Attempting to ${action} ${ipType} address: ${ipAddress}`, output);
+
+      // Find the fail2ban container
+      const fail2banContainer = this.getContainerByName('fail2ban');
+      if (!fail2banContainer) {
+        throw new Error('fail2ban container not found');
+      }
+
+      this.logAndOutput(`Found fail2ban container`, output);
+
+      // Check if fail2ban container is running
+      if (fail2banContainer.State !== 'running') {
+        throw new Error('fail2ban container is not running');
+      }
+
+      this.logAndOutput(`Executing ${action} command for IP: ${ipAddress}`, output);
+
+      // Execute the fail2ban-client command
+      const command = `fail2ban-client ${action} ${ipAddress}`;
+      const execResult = await this.dockerCommandExec(fail2banContainer.Id, command);
+
+      if (execResult.success) {
+        this.logAndOutput(`✓ Successfully executed ${action} command for ${ipAddress}`, output);
+        this.logAndOutput(`Command output: ${execResult.output}`, output);
+        return { success: true, output: output.join('\n') };
+      } else {
+        this.logAndOutput(`✗ Failed to execute ${action} command for ${ipAddress}`, output, 'error');
+        this.logAndOutput(`Error output: ${execResult.output}`, output, 'error');
+        return { success: false, output: output.join('\n') };
+      }
+    } catch (error) {
+      const errorMessage = `Error ${action}ning IP ${ipAddress}: ${error.message}`;
+      this.logAndOutput(errorMessage, output, 'error');
+      return { success: false, output: output.join('\n') };
+    }
+  }
+
+  /**
+   * Ban an IP address using fail2ban
+   * @param {string} ipAddress - IP address to ban
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
+   */
+  async dockerCustomCommandBanIP(ipAddress) {
+    return this.dockerCustomCommandFail2Ban('ban', ipAddress);
+  }
+
+  /**
+   * Unban an IP address using fail2ban
+   * @param {string} ipAddress - IP address to unban
+   * @returns {Promise<{success: boolean, output: string}>} Success status and command output
+   */
+  async dockerCustomCommandUnbanIP(ipAddress) {
+    return this.dockerCustomCommandFail2Ban('unban', ipAddress);
+  }
+
+  /**
    * Helper to get container by name
    * @param {string} name - Container name
    * @returns {Object|null} Container object or null
