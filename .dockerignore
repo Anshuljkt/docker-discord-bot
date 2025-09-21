@@ -54,6 +54,9 @@ CHANGELOG.md
 docs/
 examples/
 
+# Keep settings documentation with service
+!src/services/SETTINGS_README.md
+
 # Test files
 test/
 tests/
