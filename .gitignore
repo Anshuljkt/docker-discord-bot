@@ -14,8 +14,7 @@ yarn.lock
 .env.production
 
 # User settings
-settings/*
-!settings/.gitkeep
+settings/settings.json
 
 # Runtime data
 pids/

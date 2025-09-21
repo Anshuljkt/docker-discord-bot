@@ -276,7 +276,7 @@ module.exports = {
     const settingsService = interaction.client.settingsService;
     const settings = await settingsService.loadSettings();
 
-    // Check if user is admin
+    // Check if user is admin (admins have full access)
     if (settings.DiscordSettings.AdminIDs.includes(interaction.user.id)) {
       return true;
     }
@@ -285,37 +285,76 @@ module.exports = {
       return false;
     }
 
-    // Check user permissions
     const userId = interaction.user.id;
-    if (['start'].includes(command)) {
-      if (settings.DiscordSettings.UserStartPermissions[userId] &&
-          settings.DiscordSettings.UserStartPermissions[userId].includes(dockerName)) {
-        return true;
-      }
-    } else if (['stop', 'restart', 'exec', 'jfFix', 'banIP', 'unbanIP'].includes(command)) {
-      if (settings.DiscordSettings.UserStopPermissions[userId] &&
-          settings.DiscordSettings.UserStopPermissions[userId].includes(dockerName)) {
-        return true;
-      }
-    }
-
-    // Check role permissions
     const userRoles = interaction.member.roles.cache;
 
-    if (['start'].includes(command)) {
-      for (const [roleId, containers] of Object.entries(settings.DiscordSettings.RoleStartPermissions)) {
-        if (userRoles.has(roleId) && containers.includes(dockerName)) {
-          return true;
-        }
-      }
-    } else if (['stop', 'restart', 'exec', 'jfFix', 'banIP', 'unbanIP'].includes(command)) {
-      for (const [roleId, containers] of Object.entries(settings.DiscordSettings.RoleStopPermissions)) {
-        if (userRoles.has(roleId) && containers.includes(dockerName)) {
-          return true;
+    // Get user's permissions for this container
+    const userPermissions = this.getUserContainerPermissions(settings, userId, userRoles, dockerName);
+    
+    // Check if user has permission for this specific command on this container
+    return userPermissions.includes(command);
+  },
+
+  /**
+   * Get all permissions a user has for a specific container
+   * @param {Object} settings - Bot settings
+   * @param {string} userId - Discord user ID
+   * @param {Collection} userRoles - User's Discord roles
+   * @param {string} containerName - Name of the container
+   * @returns {Array<string>} Array of allowed commands for this container
+   */
+  getUserContainerPermissions(settings, userId, userRoles, containerName) {
+    const permissions = new Set();
+
+    // Add permissions from user-specific settings
+    if (settings.DiscordSettings.UserPermissions?.[userId]?.[containerName]) {
+      settings.DiscordSettings.UserPermissions[userId][containerName].forEach(perm => {
+        permissions.add(perm);
+      });
+    }
+
+    // Add permissions from role-based settings
+    if (settings.DiscordSettings.RolePermissions) {
+      for (const [roleId, rolePerms] of Object.entries(settings.DiscordSettings.RolePermissions)) {
+        if (userRoles.has(roleId) && rolePerms[containerName]) {
+          rolePerms[containerName].forEach(perm => {
+            permissions.add(perm);
+          });
         }
       }
     }
 
-    return false;
+    return Array.from(permissions);
+  },
+
+  /**
+   * Get all containers a user has any permission to access
+   * @param {Object} settings - Bot settings
+   * @param {string} userId - Discord user ID
+   * @param {Collection} userRoles - User's Discord roles
+   * @returns {Array<string>} Array of container names the user can access
+   */
+  getUserVisibleContainers(settings, userId, userRoles) {
+    const containers = new Set();
+
+    // Add containers from user-specific permissions
+    if (settings.DiscordSettings.UserPermissions?.[userId]) {
+      Object.keys(settings.DiscordSettings.UserPermissions[userId]).forEach(container => {
+        containers.add(container);
+      });
+    }
+
+    // Add containers from role-based permissions
+    if (settings.DiscordSettings.RolePermissions) {
+      for (const [roleId, rolePerms] of Object.entries(settings.DiscordSettings.RolePermissions)) {
+        if (userRoles.has(roleId)) {
+          Object.keys(rolePerms).forEach(container => {
+            containers.add(container);
+          });
+        }
+      }
+    }
+
+    return Array.from(containers);
   },
 };
