@@ -38,16 +38,6 @@ module.exports = {
               { name: 'User', value: 'user' },
               { name: 'Role', value: 'role' }
             ))
-        .addUserOption(option =>
-          option
-            .setName('user')
-            .setDescription('User to add permission for')
-            .setRequired(false))
-        .addRoleOption(option =>
-          option
-            .setName('role')
-            .setDescription('Role to add permission for')
-            .setRequired(false))
         .addStringOption(option =>
           option
             .setName('container')
@@ -66,7 +56,17 @@ module.exports = {
               { name: 'jfFix', value: 'jfFix' },
               { name: 'banIP', value: 'banIP' },
               { name: 'unbanIP', value: 'unbanIP' }
-            )))
+            ))
+        .addUserOption(option =>
+          option
+            .setName('user')
+            .setDescription('User to add permission for')
+            .setRequired(false))
+        .addRoleOption(option =>
+          option
+            .setName('role')
+            .setDescription('Role to add permission for')
+            .setRequired(false)))
     .addSubcommand(subcommand =>
       subcommand
         .setName('remove')
@@ -80,16 +80,6 @@ module.exports = {
               { name: 'User', value: 'user' },
               { name: 'Role', value: 'role' }
             ))
-        .addUserOption(option =>
-          option
-            .setName('user')
-            .setDescription('User to remove permission from')
-            .setRequired(false))
-        .addRoleOption(option =>
-          option
-            .setName('role')
-            .setDescription('Role to remove permission from')
-            .setRequired(false))
         .addStringOption(option =>
           option
             .setName('container')
@@ -108,7 +98,17 @@ module.exports = {
               { name: 'jfFix', value: 'jfFix' },
               { name: 'banIP', value: 'banIP' },
               { name: 'unbanIP', value: 'unbanIP' }
-            )))
+            ))
+        .addUserOption(option =>
+          option
+            .setName('user')
+            .setDescription('User to remove permission from')
+            .setRequired(false))
+        .addRoleOption(option =>
+          option
+            .setName('role')
+            .setDescription('Role to remove permission from')
+            .setRequired(false)))
     .addSubcommand(subcommand =>
       subcommand
         .setName('list')
