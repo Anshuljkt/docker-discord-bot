@@ -47,12 +47,12 @@ class SettingsService {
     if (!fsSync.existsSync(this.settingsFile)) {
       console.error(`[SettingsService] ERROR: settings.json not found: ${this.settingsFile}`);
       console.error('[SettingsService] 📋 Configuration required:');
-      console.error('[SettingsService]   1. Check settings/settings_UpdateAndRenameMe.json for the latest template');
+      console.error('[SettingsService]   1. Check settings/settings_default.json for the latest template');
       console.error('[SettingsService]   2. Copy/rename it to settings.json');
       console.error('[SettingsService]   3. Update with your Discord token, admin IDs, and guild IDs');
       console.error('[SettingsService]   4. Set up container permissions as needed');
       console.error('[SettingsService] 📖 See settings/SETTINGS_README.md for detailed configuration guide');
-      throw new Error('settings.json missing - please create from template (see settings_UpdateAndRenameMe.json)');
+      throw new Error('settings.json missing - please create from template (see settings_default.json)');
     } else {
       console.log(`[SettingsService] Settings file found: ${this.settingsFile}`);
     }
@@ -67,10 +67,10 @@ class SettingsService {
     
     try {
       // Copy latest default settings template
-      const templatePath = path.join(this.settingsPath, 'settings_UpdateAndRenameMe.json');
+      const templatePath = path.join(this.settingsPath, 'settings_default.json');
       const defaultContent = fsSync.readFileSync(this.defaultSettingsFile, 'utf8');
       fsSync.writeFileSync(templatePath, defaultContent, 'utf8');
-      console.log('[SettingsService] ✅ Copied latest default template to settings_UpdateAndRenameMe.json');
+      console.log('[SettingsService] ✅ Copied latest default template to settings_default.json');
       
       // Copy latest documentation
       const docSourcePath = path.join(__dirname, 'SETTINGS_README.md');
