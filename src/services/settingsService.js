@@ -12,10 +12,11 @@ class SettingsService {
     console.log('[SettingsService] Initializing settings service...');
     this.settingsPath = path.resolve(process.cwd(), 'settings');
     this.settingsFile = path.join(this.settingsPath, 'settings.json');
-    this.defaultSettingsFile = path.join(this.settingsPath, 'default-settings.json');
+    this.defaultSettingsFile = path.join(__dirname, 'default-settings.json');
     this.settings = null;
     console.log('[SettingsService] Settings path:', this.settingsPath);
     console.log('[SettingsService] Settings file:', this.settingsFile);
+    console.log('[SettingsService] Default template:', this.defaultSettingsFile);
     this.ensureSettingsDirectory();
   }
 
@@ -33,44 +34,57 @@ class SettingsService {
       console.log(`[SettingsService] Settings directory already exists: ${this.settingsPath}`);
     }
 
+    // Default template is now part of the application code, always available
     if (!fsSync.existsSync(this.defaultSettingsFile)) {
-      console.error(`[SettingsService] ERROR: Default settings file not found: ${this.defaultSettingsFile}`);
-      console.error('[SettingsService] This file should be included in the repository');
-      throw new Error('default-settings.json missing - check repository files');
-    } else {
-      console.log(`[SettingsService] Default settings file found: ${this.defaultSettingsFile}`);
+      console.error(`[SettingsService] CRITICAL ERROR: Default settings template missing from application: ${this.defaultSettingsFile}`);
+      console.error('[SettingsService] This indicates a packaging or installation problem.');
+      throw new Error('Application is missing default settings template - check installation');
     }
 
+    // Always copy the latest default template and documentation to settings folder
+    this.copyLatestTemplatesToSettings();
+
     if (!fsSync.existsSync(this.settingsFile)) {
-      console.log(`[SettingsService] Settings file does not exist: ${this.settingsFile}`);
-      console.log('[SettingsService] Will copy from default settings...');
-      this.copyDefaultToSettings();
+      console.error(`[SettingsService] ERROR: settings.json not found: ${this.settingsFile}`);
+      console.error('[SettingsService] 📋 Configuration required:');
+      console.error('[SettingsService]   1. Check settings/settings_UpdateAndRenameMe.json for the latest template');
+      console.error('[SettingsService]   2. Copy/rename it to settings.json');
+      console.error('[SettingsService]   3. Update with your Discord token, admin IDs, and guild IDs');
+      console.error('[SettingsService]   4. Set up container permissions as needed');
+      console.error('[SettingsService] 📖 See settings/SETTINGS_README.md for detailed configuration guide');
+      throw new Error('settings.json missing - please create from template (see settings_UpdateAndRenameMe.json)');
     } else {
-      console.log(`[SettingsService] Settings file already exists: ${this.settingsFile}`);
+      console.log(`[SettingsService] Settings file found: ${this.settingsFile}`);
     }
     
     console.log('[SettingsService] Settings directory setup complete');
-  }
-
-  /**
-   * Copy default settings to settings.json
+  }  /**
+   * Copy latest templates and documentation to settings directory
+   * This ensures users always have the latest configuration examples and guidance
    */
-  copyDefaultToSettings() {
-    console.log('[SettingsService] Copying default settings to settings.json...');
+  copyLatestTemplatesToSettings() {
+    console.log('[SettingsService] Copying latest templates and documentation to settings directory...');
+    
     try {
+      // Copy latest default settings template
+      const templatePath = path.join(this.settingsPath, 'settings_UpdateAndRenameMe.json');
       const defaultContent = fsSync.readFileSync(this.defaultSettingsFile, 'utf8');
-      const defaultSettings = JSON.parse(defaultContent);
+      fsSync.writeFileSync(templatePath, defaultContent, 'utf8');
+      console.log('[SettingsService] ✅ Copied latest default template to settings_UpdateAndRenameMe.json');
       
-      if (process.env.DISCORD_TOKEN) {
-        defaultSettings.DiscordSettings.Token = process.env.DISCORD_TOKEN;
-        console.log('[SettingsService] Applied Discord token from environment variable');
+      // Copy latest documentation
+      const docSourcePath = path.join(__dirname, 'SETTINGS_README.md');
+      const docDestPath = path.join(this.settingsPath, 'SETTINGS_README.md');
+      if (fsSync.existsSync(docSourcePath)) {
+        const docContent = fsSync.readFileSync(docSourcePath, 'utf8');
+        fsSync.writeFileSync(docDestPath, docContent, 'utf8');
+        console.log('[SettingsService] ✅ Copied latest documentation to SETTINGS_README.md');
       }
       
-      fsSync.writeFileSync(this.settingsFile, JSON.stringify(defaultSettings, null, 2), 'utf8');
-      console.log('[SettingsService] Successfully copied default settings to settings.json');
+      console.log('[SettingsService] Latest templates and documentation are now available in settings/');
     } catch (error) {
-      console.error('[SettingsService] Error copying default settings:', error.message);
-      throw new Error(`Failed to copy default settings: ${error.message}`);
+      console.error('[SettingsService] Error copying templates:', error.message);
+      // Don't throw here - this is not critical for operation if settings.json exists
     }
   }
 
@@ -97,6 +111,10 @@ class SettingsService {
       }
 
       console.log('[SettingsService] Settings loaded and parsed successfully');
+      
+      // Validate critical settings before proceeding
+      this.validateSettings();
+      
       console.log('[SettingsService] Settings validation:');
       console.log('  - Token present:', !!this.settings.DiscordSettings?.Token);
       console.log('  - Token length:', this.settings.DiscordSettings?.Token?.length || 0);
@@ -165,6 +183,87 @@ class SettingsService {
    */
   clearCache() {
     this.settings = null;
+  }
+
+  /**
+   * Validate that settings are properly configured and not using default placeholder values
+   * @throws {Error} If settings contain placeholder values or are invalid
+   */
+  validateSettings() {
+    if (!this.settings) {
+      throw new Error('Settings not loaded');
+    }
+
+    const errors = [];
+    const warnings = [];
+
+    // Validate Discord Token
+    const token = this.settings.DiscordSettings?.Token;
+    if (!token || token.includes('<-') || token.includes('Paste Your') || token.length < 50) {
+      errors.push('Discord bot token is not configured. Please set a valid bot token in settings.json');
+    }
+
+    // Validate Admin IDs
+    const adminIDs = this.settings.DiscordSettings?.AdminIDs || [];
+    if (adminIDs.length === 0) {
+      errors.push('No admin users configured. At least one admin ID is required.');
+    } else {
+      // Check for placeholder admin IDs
+      const placeholderAdmins = adminIDs.filter(id => 
+        id.startsWith('123456') || id.startsWith('876543') || id === 'exampleAdminUserId'
+      );
+      if (placeholderAdmins.length > 0) {
+        errors.push(`Placeholder admin IDs detected: ${placeholderAdmins.join(', ')}. Replace with real Discord user IDs.`);
+      }
+    }
+
+    // Validate Guild IDs
+    const guildIDs = this.settings.DiscordSettings?.GuildIDs || [];
+    if (guildIDs.length === 0) {
+      warnings.push('No guild IDs configured. Bot commands will not work in any Discord servers.');
+    } else {
+      // Check for placeholder guild IDs
+      const placeholderGuilds = guildIDs.filter(id => 
+        id.startsWith('123456') || id.startsWith('876543')
+      );
+      if (placeholderGuilds.length > 0) {
+        errors.push(`Placeholder guild IDs detected: ${placeholderGuilds.join(', ')}. Replace with real Discord server IDs.`);
+      }
+    }
+
+    // Check for placeholder user permissions
+    const userPermissions = this.settings.DiscordSettings?.UserPermissions || {};
+    const placeholderUsers = Object.keys(userPermissions).filter(userId => 
+      userId.startsWith('example') || userId.startsWith('123456') || userId.startsWith('876543')
+    );
+    if (placeholderUsers.length > 0) {
+      warnings.push(`Placeholder user IDs in permissions: ${placeholderUsers.join(', ')}. These won't match real users.`);
+    }
+
+    // Check for placeholder role permissions
+    const rolePermissions = this.settings.DiscordSettings?.RolePermissions || {};
+    const placeholderRoles = Object.keys(rolePermissions).filter(roleId => 
+      roleId.includes('RoleId') || roleId.startsWith('123456') || roleId.startsWith('876543')
+    );
+    if (placeholderRoles.length > 0) {
+      warnings.push(`Placeholder role IDs in permissions: ${placeholderRoles.join(', ')}. These won't match real roles.`);
+    }
+
+    // Log warnings
+    if (warnings.length > 0) {
+      console.warn('[SettingsService] Configuration warnings:');
+      warnings.forEach(warning => console.warn(`  ⚠️  ${warning}`));
+    }
+
+    // Throw error if critical issues found
+    if (errors.length > 0) {
+      console.error('[SettingsService] Critical configuration errors:');
+      errors.forEach(error => console.error(`  ❌ ${error}`));
+      console.error('[SettingsService] Please check the README.md in the settings folder for configuration instructions.');
+      throw new Error(`Configuration validation failed: ${errors.join('; ')}`);
+    }
+
+    console.log('[SettingsService] ✅ Settings validation passed');
   }
 }
 

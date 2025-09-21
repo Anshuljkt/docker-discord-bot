@@ -28,7 +28,7 @@ async function main() {
     console.log('[MAIN] Initializing SettingsService...');
     const settingsService = new SettingsService();
     const settings = await settingsService.loadSettings();
-    console.log('[MAIN] Settings loaded successfully');
+    console.log('[MAIN] Settings loaded and validated successfully');
 
     // Log critical settings (without sensitive data)
     console.log('[MAIN] Bot name:', settings.DockerSettings?.BotName || 'Unknown');
@@ -101,8 +101,33 @@ async function main() {
     console.log('[MAIN] ✓ Bot is running successfully!');
 
   } catch (error) {
-    console.error('[MAIN] CRITICAL: Error starting the bot:', error);
-    console.error('[MAIN] Error stack:', error.stack);
+    console.error('[MAIN] CRITICAL: Error starting the bot:', error.message);
+    
+    // Provide helpful error context for common issues
+    if (error.message.includes('Configuration validation failed')) {
+      console.error('[MAIN] ');
+      console.error('[MAIN] 🚨 CONFIGURATION ERROR:');
+      console.error('[MAIN] Your settings.json contains placeholder values that need to be updated.');
+      console.error('[MAIN] ');
+      console.error('[MAIN] 📝 QUICK FIX:');
+      console.error('[MAIN] 1. Edit settings/settings.json');
+      console.error('[MAIN] 2. Replace placeholder values with real Discord IDs');
+      console.error('[MAIN] 3. Set your actual Discord bot token');
+      console.error('[MAIN] 4. See settings/README.md for detailed instructions');
+      console.error('[MAIN] ');
+    } else if (error.message.includes('token') || error.message.includes('Unauthorized')) {
+      console.error('[MAIN] ');
+      console.error('[MAIN] 🚨 DISCORD TOKEN ERROR:');
+      console.error('[MAIN] Invalid or missing Discord bot token.');
+      console.error('[MAIN] ');
+      console.error('[MAIN] 📝 QUICK FIX:');
+      console.error('[MAIN] 1. Get your bot token from https://discord.com/developers/applications');
+      console.error('[MAIN] 2. Set it in settings.json or as DISCORD_TOKEN environment variable');
+      console.error('[MAIN] ');
+    } else {
+      console.error('[MAIN] Error details:', error.stack);
+    }
+    
     process.exit(1);
   }
 }
