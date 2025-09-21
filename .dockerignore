@@ -44,8 +44,7 @@ logs/
 *.log
 
 # User settings
-settings/*
-!settings/.gitkeep
+settings/settings.json
 
 # Documentation
 README.md

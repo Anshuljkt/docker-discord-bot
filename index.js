@@ -48,18 +48,42 @@ async function main() {
     console.log('[MAIN] Initializing health check service...');
     healthCheck.init(discordService.client, dockerService);
 
-    // Set up graceful shutdown
-    process.on('SIGINT', () => {
-      console.log('[MAIN] Received SIGINT, shutting down gracefully...');
-      discordService.client.destroy();
-      process.exit(0);
-    });
+    // Set up graceful shutdown with timeout
+    let isShuttingDown = false;
+    
+    const gracefulShutdown = (signal) => {
+      if (isShuttingDown) {
+        console.log(`[MAIN] ${signal} received again, forcing exit...`);
+        process.exit(1);
+      }
+      
+      isShuttingDown = true;
+      console.log(`[MAIN] Received ${signal}, shutting down gracefully...`);
+      
+      // Set a timeout to force exit if graceful shutdown takes too long
+      const shutdownTimeout = setTimeout(() => {
+        console.log('[MAIN] Graceful shutdown timeout, forcing exit...');
+        process.exit(1);
+      }, 5000); // 5 second timeout
+      
+      try {
+        if (discordService?.client) {
+          discordService.client.destroy();
+        }
+        clearTimeout(shutdownTimeout);
+        console.log('[MAIN] Graceful shutdown completed');
+        process.exit(0);
+      } catch (error) {
+        console.error('[MAIN] Error during graceful shutdown:', error);
+        clearTimeout(shutdownTimeout);
+        process.exit(1);
+      }
+    };
 
-    process.on('SIGTERM', () => {
-      console.log('[MAIN] Received SIGTERM, shutting down gracefully...');
-      discordService.client.destroy();
-      process.exit(0);
-    });
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
+    process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
 
     process.on('unhandledRejection', (reason, promise) => {
       console.error('[MAIN] Unhandled Rejection at:', promise, 'reason:', reason);

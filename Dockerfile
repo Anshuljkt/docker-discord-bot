@@ -42,8 +42,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
     curl \
     ca-certificates \
+    tini \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs
+
+# Set tini as entrypoint for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Copy package files
 COPY package*.json ./
@@ -62,9 +66,9 @@ COPY --from=builder /app/test-docker.js ./
 RUN mkdir -p /app/settings && \
     chmod -R 777 /app
 
-# Health check configuration
+# Health check configuration - lightweight and less frequent
 ENV HEALTH_CHECK_PORT=3021
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:$HEALTH_CHECK_PORT/health || exit 1
 
 # Run the application with explicit event loop flags to improve stability across platforms
