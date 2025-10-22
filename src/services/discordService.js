@@ -91,16 +91,6 @@ class DiscordService {
       try {
         await interaction.reply('Thinking!');
         console.log('[DiscordService] Interaction received, message replied:\n\n', interaction.toJSON());
-        //   console.log(`[DiscordService] Interaction received, message deferred:`, {
-        //   type: interaction.type,
-        //   commandName: interaction.commandName || 'N/A',
-        //   user: interaction.user?.tag || 'Unknown',
-        //   userId: interaction.user?.id || 'Unknown',
-        //   guildId: interaction.guildId || 'DM',
-        //   channelId: interaction.channelId || 'Unknown',
-        //   isCommand: interaction.isCommand(),
-        //   timestamp: new Date().toISOString()
-      //   });
       } catch (deferError) {
         console.error('[DiscordService] Error deferring reply:', deferError);
         try {
