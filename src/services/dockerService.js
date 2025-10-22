@@ -244,76 +244,78 @@ class DockerService {
    * @returns {Promise<{success: boolean, output: string}>} Success status and command output
    */
   async dockerCommandExec(id, command) {
-    const output = [];
+    return { success: false, output: 'Command execution is currently disabled for security reasons.' };
+    
+    // const output = [];
 
-    try {
-      const container = this.getContainer(id);
-      if (!container) {
-        throw new Error(`Container '${id}' not found`);
-      }
+    // try {
+    //   const container = this.getContainer(id);
+    //   if (!container) {
+    //     throw new Error(`Container '${id}' not found`);
+    //   }
 
-      // Get the container name for better logging
-      const containerInfo = this.containers.find(c => c.Id === container.id);
-      const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
+    //   // Get the container name for better logging
+    //   const containerInfo = this.containers.find(c => c.Id === container.id);
+    //   const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
 
-      this.logAndOutput(`Attempting to execute command in container: ${containerName}`, output);
-      this.logAndOutput(`Command: ${command}`, output);
+    //   this.logAndOutput(`Attempting to execute command in container: ${containerName}`, output);
+    //   this.logAndOutput(`Command: ${command}`, output);
 
-      // Check if container is running
-      const inspectData = await container.inspect();
-      if (!inspectData.State.Running) {
-        throw new Error(`Container '${containerName}' is not running`);
-      }
+    //   // Check if container is running
+    //   const inspectData = await container.inspect();
+    //   if (!inspectData.State.Running) {
+    //     throw new Error(`Container '${containerName}' is not running`);
+    //   }
 
-      this.logAndOutput(`Executing command in ${containerName}...`, output);
+    //   this.logAndOutput(`Executing command in ${containerName}...`, output);
 
-      const exec = await container.exec({
-        // Use bash for command execution with proper argument parsing
-        Cmd: ['bash', '-c', command],
-        AttachStdout: true,
-        AttachStderr: true,
-      });
+    //   const exec = await container.exec({
+    //     // Use bash for command execution with proper argument parsing
+    //     Cmd: ['bash', '-c', command],
+    //     AttachStdout: true,
+    //     AttachStderr: true,
+    //   });
 
-      const stream = await exec.start();
+    //   const stream = await exec.start();
 
-      const commandResult = await new Promise((resolve, reject) => {
-        let stdoutOutput = '';
-        let stderrOutput = '';
+    //   const commandResult = await new Promise((resolve, reject) => {
+    //     let stdoutOutput = '';
+    //     let stderrOutput = '';
 
-        // Handle stdout data
-        stream.on('data', (chunk) => {
-          stdoutOutput += chunk.toString();
-        });
+    //     // Handle stdout data
+    //     stream.on('data', (chunk) => {
+    //       stdoutOutput += chunk.toString();
+    //     });
 
-        // Handle stderr data if available
-        stream.stderr?.on('data', (chunk) => {
-          stderrOutput += chunk.toString();
-        });
+    //     // Handle stderr data if available
+    //     stream.stderr?.on('data', (chunk) => {
+    //       stderrOutput += chunk.toString();
+    //     });
 
-        // Handle stream end
-        stream.on('end', () => {
-          // If there's stderr output, include it in the result
-          const commandOutput = stderrOutput ?
-            `STDOUT:\n${stdoutOutput}\nSTDERR:\n${stderrOutput}` :
-            stdoutOutput;
-          resolve(commandOutput);
-        });
+    //     // Handle stream end
+    //     stream.on('end', () => {
+    //       // If there's stderr output, include it in the result
+    //       const commandOutput = stderrOutput ?
+    //         `STDOUT:\n${stdoutOutput}\nSTDERR:\n${stderrOutput}` :
+    //         stdoutOutput;
+    //       resolve(commandOutput);
+    //     });
 
-        // Handle errors
-        stream.on('error', (err) => {
-          reject(err);
-        });
-      });
+    //     // Handle errors
+    //     stream.on('error', (err) => {
+    //       reject(err);
+    //     });
+    //   });
 
-      this.logAndOutput(`✓ Command executed successfully in ${containerName}`, output);
-      this.logAndOutput(`Command output:\n${commandResult}`, output);
+    //   this.logAndOutput(`✓ Command executed successfully in ${containerName}`, output);
+    //   this.logAndOutput(`Command output:\n${commandResult}`, output);
 
-      return { success: true, output: output.join('\n') };
-    } catch (error) {
-      const errorMessage = `Error executing command in container ${id}: ${error.message}`;
-      this.logAndOutput(errorMessage, output, 'error');
-      return { success: false, output: output.join('\n') };
-    }
+    //   return { success: true, output: output.join('\n') };
+    // } catch (error) {
+    //   const errorMessage = `Error executing command in container ${id}: ${error.message}`;
+    //   this.logAndOutput(errorMessage, output, 'error');
+    //   return { success: false, output: output.join('\n') };
+    // }
   }
 
   /**
