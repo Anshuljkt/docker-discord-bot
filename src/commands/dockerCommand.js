@@ -229,20 +229,22 @@ module.exports = {
           break;
         }
         case 'exec': {
-          if (!cliCommand) {
-            await interaction.editReply('CLI command is required for exec operation');
-            return false;
-          }
-          console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
-          const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
+          await interaction.editReply(`Arbitrary Exec commands are disabled for security reasons.`);
+          return false;
+          // if (!cliCommand) {
+          //   await interaction.editReply('CLI command is required for exec operation');
+          //   return false;
+          // }
+          // console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
+          // const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
           
-          // For exec, always show the detailed output since that's what users want to see
-          if (result.success) {
-            await interaction.editReply(`${interaction.user} Command executed in ${dockerName}\n\n**Output:**\n\`\`\`\n${result.output}\n\`\`\``);
-          } else {
-            await interaction.editReply(`Failed to execute command in ${dockerName}\n\n**Details:**\n\`\`\`\n${result.output}\n\`\`\``);
-          }
-          return true;
+          // // For exec, always show the detailed output since that's what users want to see
+          // if (result.success) {
+          //   await interaction.editReply(`${interaction.user} Command executed in ${dockerName}\n\n**Output:**\n\`\`\`\n${result.output}\n\`\`\``);
+          // } else {
+          //   await interaction.editReply(`Failed to execute command in ${dockerName}\n\n**Details:**\n\`\`\`\n${result.output}\n\`\`\``);
+          // }
+          // return true;
         }
         }
 
