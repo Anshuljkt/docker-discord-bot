@@ -243,79 +243,81 @@ class DockerService {
    * @param {string} command - Command to execute
    * @returns {Promise<{success: boolean, output: string}>} Success status and command output
    */
-  async dockerCommandExec(id, command) {
-    return { success: false, output: 'Command execution is currently disabled for security reasons.' };
-    
-    // const output = [];
+  async dockerCommandExec(id, command, definedCommand) {
+    if (definedCommand !== 'YayTaskEnabledGoAheadPleaseAndThankYou!') {
+      return { success: false, output: 'Command execution is currently disabled for security reasons.' };
+    }
 
-    // try {
-    //   const container = this.getContainer(id);
-    //   if (!container) {
-    //     throw new Error(`Container '${id}' not found`);
-    //   }
+    const output = [];
 
-    //   // Get the container name for better logging
-    //   const containerInfo = this.containers.find(c => c.Id === container.id);
-    //   const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
+    try {
+      const container = this.getContainer(id);
+      if (!container) {
+        throw new Error(`Container '${id}' not found`);
+      }
 
-    //   this.logAndOutput(`Attempting to execute command in container: ${containerName}`, output);
-    //   this.logAndOutput(`Command: ${command}`, output);
+      // Get the container name for better logging
+      const containerInfo = this.containers.find(c => c.Id === container.id);
+      const containerName = containerInfo ? containerInfo.Names[0].replace('/', '') : id;
 
-    //   // Check if container is running
-    //   const inspectData = await container.inspect();
-    //   if (!inspectData.State.Running) {
-    //     throw new Error(`Container '${containerName}' is not running`);
-    //   }
+      this.logAndOutput(`Attempting to execute command in container: ${containerName}`, output);
+      this.logAndOutput(`Command: ${command}`, output);
 
-    //   this.logAndOutput(`Executing command in ${containerName}...`, output);
+      // Check if container is running
+      const inspectData = await container.inspect();
+      if (!inspectData.State.Running) {
+        throw new Error(`Container '${containerName}' is not running`);
+      }
 
-    //   const exec = await container.exec({
-    //     // Use bash for command execution with proper argument parsing
-    //     Cmd: ['bash', '-c', command],
-    //     AttachStdout: true,
-    //     AttachStderr: true,
-    //   });
+      this.logAndOutput(`Executing command in ${containerName}...`, output);
 
-    //   const stream = await exec.start();
+      const exec = await container.exec({
+        // Use bash for command execution with proper argument parsing
+        Cmd: ['bash', '-c', command],
+        AttachStdout: true,
+        AttachStderr: true,
+      });
 
-    //   const commandResult = await new Promise((resolve, reject) => {
-    //     let stdoutOutput = '';
-    //     let stderrOutput = '';
+      const stream = await exec.start();
 
-    //     // Handle stdout data
-    //     stream.on('data', (chunk) => {
-    //       stdoutOutput += chunk.toString();
-    //     });
+      const commandResult = await new Promise((resolve, reject) => {
+        let stdoutOutput = '';
+        let stderrOutput = '';
 
-    //     // Handle stderr data if available
-    //     stream.stderr?.on('data', (chunk) => {
-    //       stderrOutput += chunk.toString();
-    //     });
+        // Handle stdout data
+        stream.on('data', (chunk) => {
+          stdoutOutput += chunk.toString();
+        });
 
-    //     // Handle stream end
-    //     stream.on('end', () => {
-    //       // If there's stderr output, include it in the result
-    //       const commandOutput = stderrOutput ?
-    //         `STDOUT:\n${stdoutOutput}\nSTDERR:\n${stderrOutput}` :
-    //         stdoutOutput;
-    //       resolve(commandOutput);
-    //     });
+        // Handle stderr data if available
+        stream.stderr?.on('data', (chunk) => {
+          stderrOutput += chunk.toString();
+        });
 
-    //     // Handle errors
-    //     stream.on('error', (err) => {
-    //       reject(err);
-    //     });
-    //   });
+        // Handle stream end
+        stream.on('end', () => {
+          // If there's stderr output, include it in the result
+          const commandOutput = stderrOutput ?
+            `STDOUT:\n${stdoutOutput}\nSTDERR:\n${stderrOutput}` :
+            stdoutOutput;
+          resolve(commandOutput);
+        });
 
-    //   this.logAndOutput(`✓ Command executed successfully in ${containerName}`, output);
-    //   this.logAndOutput(`Command output:\n${commandResult}`, output);
+        // Handle errors
+        stream.on('error', (err) => {
+          reject(err);
+        });
+      });
 
-    //   return { success: true, output: output.join('\n') };
-    // } catch (error) {
-    //   const errorMessage = `Error executing command in container ${id}: ${error.message}`;
-    //   this.logAndOutput(errorMessage, output, 'error');
-    //   return { success: false, output: output.join('\n') };
-    // }
+      this.logAndOutput(`✓ Command executed successfully in ${containerName}`, output);
+      this.logAndOutput(`Command output:\n${commandResult}`, output);
+
+      return { success: true, output: output.join('\n') };
+    } catch (error) {
+      const errorMessage = `Error executing command in container ${id}: ${error.message}`;
+      this.logAndOutput(errorMessage, output, 'error');
+      return { success: false, output: output.join('\n') };
+    }
   }
 
   /**
@@ -500,7 +502,7 @@ class DockerService {
 
       // Execute the fail2ban-client command
       const command = `fail2ban-client ${action} ${ipAddress}`;
-      const execResult = await this.dockerCommandExec(fail2banContainer.Id, command);
+      const execResult = await this.dockerCommandExec(fail2banContainer.Id, command, 'YayTaskEnabledGoAheadPleaseAndThankYou!');
 
       if (execResult.success) {
         this.logAndOutput(`✓ Successfully executed ${action} command for ${ipAddress}`, output);
