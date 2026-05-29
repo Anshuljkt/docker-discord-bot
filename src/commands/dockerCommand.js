@@ -18,7 +18,11 @@ module.exports = {
           { name: 'Stop', value: 'stop' },
           { name: 'Restart', value: 'restart' },
           { name: 'Execute', value: 'exec' },
-          { name: 'jfFix', value: 'jfFix' },
+          // jfFix disabled: Jellyfin no longer runs in Docker on this host.
+          // Re-enable this choice (and the handler blocks below) if Jellyfin
+          // is moved back into a container and needs the jellyfin+jellystat
+          // restart dance.
+          // { name: 'jfFix', value: 'jfFix' },
           { name: 'Ban IP', value: 'banIP' },
           { name: 'Unban IP', value: 'unbanIP' },
         ),
@@ -64,11 +68,12 @@ module.exports = {
 
       console.log(`[DockerCommand] Command: ${command}, Container: ${dockerName}, CLI: ${cliCommand || 'N/A'}, IP: ${ipAddress || 'N/A'}`);
 
-      // Special case for jfFix command
-      if (command === 'jfFix') {
-        dockerName = 'jellyfin';
-        console.log('[DockerCommand] jfFix command - targeting jellyfin container');
-      }
+      // jfFix disabled: Jellyfin no longer runs in Docker on this host.
+      // // Special case for jfFix command
+      // if (command === 'jfFix') {
+      //   dockerName = 'jellyfin';
+      //   console.log('[DockerCommand] jfFix command - targeting jellyfin container');
+      // }
 
       // Special case for banIP/unbanIP commands
       if (command === 'banIP' || command === 'unbanIP') {
@@ -118,47 +123,48 @@ module.exports = {
         return true;
       }
 
-      // Handle the jfFix command separately with real-time updates
-      if (command === 'jfFix') {
-        console.log('[DockerCommand] Starting jfFix process...');
-        await interaction.editReply('Starting jfFix process. This may take several minutes...\n\n```\nInitializing...\n```');
-
-        try {
-          let lastUpdate = Date.now();
-          const updateInterval = 3000; // Update every 3 seconds
-          
-          // Progress callback for real-time updates
-          const progressCallback = async (currentOutput) => {
-            const now = Date.now();
-            // Only update if enough time has passed to avoid rate limiting
-            if (now - lastUpdate >= updateInterval) {
-              try {
-                await interaction.editReply(`jfFix in progress...\n\n\`\`\`\n${currentOutput}\n\`\`\``);
-                lastUpdate = now;
-              } catch (editError) {
-                // If edit fails (maybe due to rate limiting), just log it and continue
-                console.warn('[DockerCommand] Failed to update progress:', editError.message);
-              }
-            }
-          };
-
-          // Run the long operation with progress updates
-          const result = await dockerService.dockerCustomCommandJellyfinFix(progressCallback);
-          console.log('[DockerCommand] jfFix completed successfully');
-          
-          // Final update with completion status
-          if (result.success) {
-            await interaction.editReply(`✅ jfFix completed successfully!\n\n\`\`\`\n${result.output}\n\`\`\``);
-          } else {
-            await interaction.editReply(`⚠️ jfFix completed with issues:\n\n\`\`\`\n${result.output}\n\`\`\``);
-          }
-          return result.success;
-        } catch (error) {
-          console.error('[DockerCommand] jfFix failed:', error);
-          await interaction.editReply(`❌ Error during jfFix: ${error.message}`);
-          return false;
-        }
-      }
+      // jfFix disabled: Jellyfin no longer runs in Docker on this host.
+      // // Handle the jfFix command separately with real-time updates
+      // if (command === 'jfFix') {
+      //   console.log('[DockerCommand] Starting jfFix process...');
+      //   await interaction.editReply('Starting jfFix process. This may take several minutes...\n\n```\nInitializing...\n```');
+      //
+      //   try {
+      //     let lastUpdate = Date.now();
+      //     const updateInterval = 3000; // Update every 3 seconds
+      //
+      //     // Progress callback for real-time updates
+      //     const progressCallback = async (currentOutput) => {
+      //       const now = Date.now();
+      //       // Only update if enough time has passed to avoid rate limiting
+      //       if (now - lastUpdate >= updateInterval) {
+      //         try {
+      //           await interaction.editReply(`jfFix in progress...\n\n\`\`\`\n${currentOutput}\n\`\`\``);
+      //           lastUpdate = now;
+      //         } catch (editError) {
+      //           // If edit fails (maybe due to rate limiting), just log it and continue
+      //           console.warn('[DockerCommand] Failed to update progress:', editError.message);
+      //         }
+      //       }
+      //     };
+      //
+      //     // Run the long operation with progress updates
+      //     const result = await dockerService.dockerCustomCommandJellyfinFix(progressCallback);
+      //     console.log('[DockerCommand] jfFix completed successfully');
+      //
+      //     // Final update with completion status
+      //     if (result.success) {
+      //       await interaction.editReply(`✅ jfFix completed successfully!\n\n\`\`\`\n${result.output}\n\`\`\``);
+      //     } else {
+      //       await interaction.editReply(`⚠️ jfFix completed with issues:\n\n\`\`\`\n${result.output}\n\`\`\``);
+      //     }
+      //     return result.success;
+      //   } catch (error) {
+      //     console.error('[DockerCommand] jfFix failed:', error);
+      //     await interaction.editReply(`❌ Error during jfFix: ${error.message}`);
+      //     return false;
+      //   }
+      // }
 
       // Handle ban/unban IP commands with shared logic
       if (command === 'banIP' || command === 'unbanIP') {
