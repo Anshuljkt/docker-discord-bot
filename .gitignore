@@ -14,7 +14,7 @@ yarn.lock
 .env.production
 
 # User settings
-settings/settings.json
+settings/*
 
 # Runtime data
 pids/
