@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { DockerService } = require('./dockerService');
 const { SettingsService } = require('./settingsService');
+const { JellyfinService } = require('./jellyfinService');
 
 // Discord Bot Permissions Int: 412317333568
 class DiscordService {
@@ -25,6 +26,7 @@ class DiscordService {
     this.settings = settings;
     this.client.dockerService = dockerService || new DockerService(settings);
     this.client.settingsService = settingsService || new SettingsService();
+    this.client.jellyfinService = new JellyfinService(settings);
 
     this.commands = new Collection();
     this.commandsData = [];
