@@ -50,22 +50,22 @@ async function main() {
 
     // Set up graceful shutdown with timeout
     let isShuttingDown = false;
-    
+
     const gracefulShutdown = (signal) => {
       if (isShuttingDown) {
         console.log(`[MAIN] ${signal} received again, forcing exit...`);
         process.exit(1);
       }
-      
+
       isShuttingDown = true;
       console.log(`[MAIN] Received ${signal}, shutting down gracefully...`);
-      
+
       // Set a timeout to force exit if graceful shutdown takes too long
       const shutdownTimeout = setTimeout(() => {
         console.log('[MAIN] Graceful shutdown timeout, forcing exit...');
         process.exit(1);
       }, 5000); // 5 second timeout
-      
+
       try {
         if (discordService?.client) {
           discordService.client.destroy();
@@ -102,7 +102,7 @@ async function main() {
 
   } catch (error) {
     console.error('[MAIN] CRITICAL: Error starting the bot:', error.message);
-    
+
     // Provide helpful error context for common issues
     if (error.message.includes('Configuration validation failed')) {
       console.error('[MAIN] ');
@@ -127,7 +127,7 @@ async function main() {
     } else {
       console.error('[MAIN] Error details:', error.stack);
     }
-    
+
     process.exit(1);
   }
 }

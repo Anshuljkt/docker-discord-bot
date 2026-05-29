@@ -1,6 +1,6 @@
 {
   "name": "docker-discord-bot",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -21,18 +21,21 @@
     "container",
     "management"
   ],
-  "author": "Maxim Kovac (original), Anshul (JS port)",
+  "author": "Anshul (JS port), Maxim Kovac (original)",
   "license": "GPL-3.0",
-  "description": "A Discord bot to control Docker containers",
+  "description": "A Discord bot to control Docker containers, and custom Jellyfin/Fail2Ban Controllers",
   "dependencies": {
     "@discordjs/rest": "^2.0.0",
-    "discord-api-types": "^0.37.61",
+    "discord-api-types": "^0.38.48",
     "discord.js": "^14.19.3",
     "dockerode": "^5.0.0",
-    "dotenv": "^16.5.0"
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "eslint": "^8.56.0",
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
     "nodemon": "^3.0.2"
   }
 }

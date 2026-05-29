@@ -25,7 +25,7 @@ class SettingsService {
    */
   ensureSettingsDirectory() {
     console.log('[SettingsService] Ensuring settings directory and files exist...');
-    
+
     if (!fsSync.existsSync(this.settingsPath)) {
       console.log(`[SettingsService] Settings directory does not exist, creating: ${this.settingsPath}`);
       fsSync.mkdirSync(this.settingsPath, { recursive: true });
@@ -56,7 +56,7 @@ class SettingsService {
     } else {
       console.log(`[SettingsService] Settings file found: ${this.settingsFile}`);
     }
-    
+
     console.log('[SettingsService] Settings directory setup complete');
   }  /**
    * Copy latest templates and documentation to settings directory
@@ -64,14 +64,14 @@ class SettingsService {
    */
   copyLatestTemplatesToSettings() {
     console.log('[SettingsService] Copying latest templates and documentation to settings directory...');
-    
+
     try {
       // Copy latest default settings template
       const templatePath = path.join(this.settingsPath, 'settings_default.json');
       const defaultContent = fsSync.readFileSync(this.defaultSettingsFile, 'utf8');
       fsSync.writeFileSync(templatePath, defaultContent, 'utf8');
       console.log('[SettingsService] ✅ Copied latest default template to settings_default.json');
-      
+
       // Copy latest documentation
       const docSourcePath = path.join(__dirname, 'SETTINGS_README.md');
       const docDestPath = path.join(this.settingsPath, 'SETTINGS_README.md');
@@ -80,7 +80,7 @@ class SettingsService {
         fsSync.writeFileSync(docDestPath, docContent, 'utf8');
         console.log('[SettingsService] ✅ Copied latest documentation to SETTINGS_README.md');
       }
-      
+
       console.log('[SettingsService] Latest templates and documentation are now available in settings/');
     } catch (error) {
       console.error('[SettingsService] Error copying templates:', error.message);
@@ -94,7 +94,7 @@ class SettingsService {
    */
   async loadSettings() {
     console.log('[SettingsService] Loading settings...');
-    
+
     if (this.settings) {
       console.log('[SettingsService] Settings already cached, returning cached version');
       return this.settings;
@@ -111,17 +111,17 @@ class SettingsService {
       }
 
       console.log('[SettingsService] Settings loaded and parsed successfully');
-      
+
       // Validate critical settings before proceeding
       this.validateSettings();
-      
+
       console.log('[SettingsService] Settings validation:');
       console.log('  - Token present:', !!this.settings.DiscordSettings?.Token);
       console.log('  - Token length:', this.settings.DiscordSettings?.Token?.length || 0);
       console.log('  - Admin IDs:', this.settings.DiscordSettings?.AdminIDs || []);
       console.log('  - Guild IDs:', this.settings.DiscordSettings?.GuildIDs || []);
       console.log('  - Bot name:', this.settings.DockerSettings?.BotName || 'Not set');
-      
+
       // Log user permissions
       const userPermissions = this.settings.DiscordSettings?.UserPermissions || {};
       const userCount = Object.keys(userPermissions).length;
@@ -134,7 +134,7 @@ class SettingsService {
           });
         });
       }
-      
+
       // Log role permissions
       const rolePermissions = this.settings.DiscordSettings?.RolePermissions || {};
       const roleCount = Object.keys(rolePermissions).length;
@@ -151,7 +151,7 @@ class SettingsService {
       return this.settings;
     } catch (error) {
       console.error(`[SettingsService] Error loading settings: ${error.message}`);
-      
+
       if (error.code === 'ENOENT') {
         console.log('[SettingsService] Settings file not found, copying from default...');
         this.copyDefaultToSettings();
@@ -209,8 +209,8 @@ class SettingsService {
       errors.push('No admin users configured. At least one admin ID is required.');
     } else {
       // Check for placeholder admin IDs
-      const placeholderAdmins = adminIDs.filter(id => 
-        id.startsWith('123456') || id.startsWith('876543') || id === 'exampleAdminUserId'
+      const placeholderAdmins = adminIDs.filter(id =>
+        id.startsWith('123456') || id.startsWith('876543') || id === 'exampleAdminUserId',
       );
       if (placeholderAdmins.length > 0) {
         errors.push(`Placeholder admin IDs detected: ${placeholderAdmins.join(', ')}. Replace with real Discord user IDs.`);
@@ -223,8 +223,8 @@ class SettingsService {
       warnings.push('No guild IDs configured. Bot commands will not work in any Discord servers.');
     } else {
       // Check for placeholder guild IDs
-      const placeholderGuilds = guildIDs.filter(id => 
-        id.startsWith('123456') || id.startsWith('876543')
+      const placeholderGuilds = guildIDs.filter(id =>
+        id.startsWith('123456') || id.startsWith('876543'),
       );
       if (placeholderGuilds.length > 0) {
         errors.push(`Placeholder guild IDs detected: ${placeholderGuilds.join(', ')}. Replace with real Discord server IDs.`);
@@ -233,8 +233,8 @@ class SettingsService {
 
     // Check for placeholder user permissions
     const userPermissions = this.settings.DiscordSettings?.UserPermissions || {};
-    const placeholderUsers = Object.keys(userPermissions).filter(userId => 
-      userId.startsWith('example') || userId.startsWith('123456') || userId.startsWith('876543')
+    const placeholderUsers = Object.keys(userPermissions).filter(userId =>
+      userId.startsWith('example') || userId.startsWith('123456') || userId.startsWith('876543'),
     );
     if (placeholderUsers.length > 0) {
       warnings.push(`Placeholder user IDs in permissions: ${placeholderUsers.join(', ')}. These won't match real users.`);
@@ -242,8 +242,8 @@ class SettingsService {
 
     // Check for placeholder role permissions
     const rolePermissions = this.settings.DiscordSettings?.RolePermissions || {};
-    const placeholderRoles = Object.keys(rolePermissions).filter(roleId => 
-      roleId.includes('RoleId') || roleId.startsWith('123456') || roleId.startsWith('876543')
+    const placeholderRoles = Object.keys(rolePermissions).filter(roleId =>
+      roleId.includes('RoleId') || roleId.startsWith('123456') || roleId.startsWith('876543'),
     );
     if (placeholderRoles.length > 0) {
       warnings.push(`Placeholder role IDs in permissions: ${placeholderRoles.join(', ')}. These won't match real roles.`);

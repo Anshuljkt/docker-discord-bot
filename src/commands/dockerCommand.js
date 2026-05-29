@@ -55,7 +55,7 @@ module.exports = {
       }
 
       const command = interaction.options.getString('command');
-      let dockerName = interaction.options.getString('dockername');
+      const dockerName = interaction.options.getString('dockername');
       const cliCommand = interaction.options.getString('cli');
 
       console.log(`[DockerCommand] Command: ${command}, Container: ${dockerName}, CLI: ${cliCommand || 'N/A'}`);
@@ -156,49 +156,49 @@ module.exports = {
 
       try {
         switch (command) {
-        case 'start': {
-          const result = await dockerService.dockerCommandStart(dockerId);
-          
-          // Check if operation was successful using structured response
-          if (result.success) {
-            await interaction.editReply(`${interaction.user} ${dockerName} has been started\n\n**Details:**\n\`\n${result.output}\n\``);
-          } else {
-            await interaction.editReply(`Failed to start ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+          case 'start': {
+            const result = await dockerService.dockerCommandStart(dockerId);
+
+            // Check if operation was successful using structured response
+            if (result.success) {
+              await interaction.editReply(`${interaction.user} ${dockerName} has been started\n\n**Details:**\n\`\n${result.output}\n\``);
+            } else {
+              await interaction.editReply(`Failed to start ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+            }
+            break;
           }
-          break;
-        }
-        case 'stop': {
-          const result = await dockerService.dockerCommandStop(dockerId);
-          
-          // Check if operation was successful using structured response
-          if (result.success) {
-            await interaction.editReply(`${interaction.user} ${dockerName} has been stopped\n\n**Details:**\n\`\n${result.output}\n\``);
-          } else {
-            await interaction.editReply(`Failed to stop ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+          case 'stop': {
+            const result = await dockerService.dockerCommandStop(dockerId);
+
+            // Check if operation was successful using structured response
+            if (result.success) {
+              await interaction.editReply(`${interaction.user} ${dockerName} has been stopped\n\n**Details:**\n\`\n${result.output}\n\``);
+            } else {
+              await interaction.editReply(`Failed to stop ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+            }
+            break;
           }
-          break;
-        }
-        case 'restart': {
-          const result = await dockerService.dockerCommandRestart(dockerId);
-          
-          // Check if operation was successful using structured response
-          if (result.success) {
-            await interaction.editReply(`${interaction.user} ${dockerName} has been restarted\n\n**Details:**\n\`\n${result.output}\n\``);
-          } else {
-            await interaction.editReply(`Failed to restart ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+          case 'restart': {
+            const result = await dockerService.dockerCommandRestart(dockerId);
+
+            // Check if operation was successful using structured response
+            if (result.success) {
+              await interaction.editReply(`${interaction.user} ${dockerName} has been restarted\n\n**Details:**\n\`\n${result.output}\n\``);
+            } else {
+              await interaction.editReply(`Failed to restart ${dockerName}\n\n**Details:**\n\`\n${result.output}\n\``);
+            }
+            break;
           }
-          break;
-        }
-        case 'exec': {
-          await interaction.editReply(`Arbitrary Exec commands are disabled for security reasons.`);
-          return false;
-          // if (!cliCommand) {
-          //   await interaction.editReply('CLI command is required for exec operation');
-          //   return false;
-          // }
-          // console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
-          // const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
-          
+          case 'exec': {
+            await interaction.editReply('Arbitrary Exec commands are disabled for security reasons.');
+            return false;
+            // if (!cliCommand) {
+            //   await interaction.editReply('CLI command is required for exec operation');
+            //   return false;
+            // }
+            // console.log(`[DockerCommand] Executing CLI command: ${cliCommand}`);
+            // const result = await dockerService.dockerCommandExec(dockerId, cliCommand);
+
           // // For exec, always show the detailed output since that's what users want to see
           // if (result.success) {
           //   await interaction.editReply(`${interaction.user} Command executed in ${dockerName}\n\n**Output:**\n\`\`\`\n${result.output}\n\`\`\``);
@@ -206,7 +206,7 @@ module.exports = {
           //   await interaction.editReply(`Failed to execute command in ${dockerName}\n\n**Details:**\n\`\`\`\n${result.output}\n\`\`\``);
           // }
           // return true;
-        }
+          }
         }
 
         return true;
@@ -254,7 +254,7 @@ module.exports = {
 
     // Get user's permissions for this container
     const userPermissions = this.getUserContainerPermissions(settings, userId, userRoles, dockerName);
-    
+
     // Check if user has permission for this specific command on this container
     return userPermissions.includes(command);
   },

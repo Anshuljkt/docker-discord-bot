@@ -2,7 +2,7 @@
    Copyright (C) 2022 Maxim Kovac - Rewritten to JS by Anshul
 */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -41,7 +41,7 @@ module.exports = {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({
             content: 'Error executing ping command',
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
       } catch (replyError) {

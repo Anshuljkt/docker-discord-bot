@@ -46,17 +46,17 @@ module.exports = {
       // Filter containers based on user permissions
       let accessibleContainers = containers;
       const userId = interaction.user.id;
-      
+
       // If not admin, filter to only containers user has access to
       if (!settings.DiscordSettings.AdminIDs.includes(userId)) {
         const userRoles = interaction.member?.roles?.cache;
         const allowedContainerNames = dockerCommand.getUserVisibleContainers(settings, userId, userRoles);
-        
+
         accessibleContainers = containers.filter(container => {
           const containerName = container.Names[0].replace('/', '');
           return allowedContainerNames.includes(containerName);
         });
-        
+
         console.log(`[ListCommand] User ${interaction.user.tag} has access to ${accessibleContainers.length} containers`);
       } else {
         console.log(`[ListCommand] User ${interaction.user.tag} is admin - showing all containers`);
@@ -77,9 +77,14 @@ module.exports = {
 
       // Check if there are containers to display
       if (filteredContainers.length === 0) {
-        const message = accessibleContainers.length === 0 
-          ? "You don't have permission to view any containers."
-          : `No ${filter !== 'all' ? filter : ''} containers found.`;
+        let message;
+        if (containers.length === 0) {
+          message = 'No containers found on the Docker host.';
+        } else if (accessibleContainers.length === 0) {
+          message = `You don't have permission to view any of the ${containers.length} container(s) on this host.`;
+        } else {
+          message = `No ${filter !== 'all' ? filter + ' ' : ''}containers found (you have access to ${accessibleContainers.length}).`;
+        }
         console.log(`[ListCommand] No containers to show: ${message}`);
         return interaction.editReply(message);
       }
