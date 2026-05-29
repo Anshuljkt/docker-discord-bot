@@ -2,7 +2,7 @@
  *
  * Jellyfin controls organised by target type:
  *
- *   /jf sessions [user] [playing_only] [tv_only]
+ *   /jf sessions [user] [playing_only=true] [tv_only]
  *
  *   /jf session pause   <session_id>
  *   /jf session stop    <session_id>
@@ -26,8 +26,18 @@
  *     Everything else is denied.
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { JellyfinService } = require('../services/jellyfinService');
+
+// Discord embed colors.
+const COLOR_INFO    = 0x5865F2;  // blurple
+const COLOR_SUCCESS = 0x57F287;
+const COLOR_WARN    = 0xFEE75C;
+const COLOR_ERROR   = 0xED4245;
+
+// Per-message limits we care about.
+const MAX_FIELDS_PER_EMBED = 25;
+const MAX_EMBEDS_PER_MESSAGE = 10;
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -39,7 +49,7 @@ module.exports = {
       sc.setName('sessions')
         .setDescription('List active Jellyfin sessions')
         .addStringOption(o => o.setName('user').setDescription('Filter by Jellyfin user name (admin only)').setRequired(false))
-        .addBooleanOption(o => o.setName('playing_only').setDescription('Only show sessions currently playing').setRequired(false))
+        .addBooleanOption(o => o.setName('playing_only').setDescription('Only show sessions currently playing (default true)').setRequired(false))
         .addBooleanOption(o => o.setName('tv_only').setDescription('Only show TV-like clients').setRequired(false)),
     )
 
@@ -209,7 +219,7 @@ function authorize({ group, sub, isAdmin, boundJfName }) {
 
 async function runSessions(interaction, jf, { isAdmin, boundJfName }) {
   let userArg = interaction.options.getString('user');
-  const playingOnly = interaction.options.getBoolean('playing_only') ?? false;
+  const playingOnly = interaction.options.getBoolean('playing_only') ?? true;
   const tvOnly = interaction.options.getBoolean('tv_only') ?? false;
 
   // Non-admins are always scoped to their own bound user.
@@ -232,12 +242,22 @@ async function runSessions(interaction, jf, { isAdmin, boundJfName }) {
 
   if (sessions.length === 0) return reply(interaction, 'No matching sessions.');
 
-  const header = `**Jellyfin sessions** (${sessions.length}` +
-    (userArg ? ` for ${userArg}` : '') +
-    (tvOnly ? ', TV only' : '') +
-    (playingOnly ? ', playing only' : '') +
-    `)`;
-  return reply(interaction, `${header}\n${buildSessionsBlock(sessions)}`);
+  const filterBits = [];
+  if (userArg) filterBits.push(`user=${userArg}`);
+  if (tvOnly) filterBits.push('TV only');
+  if (playingOnly) filterBits.push('playing only');
+  const header = `**Jellyfin sessions** (${sessions.length}${filterBits.length ? ' — ' + filterBits.join(', ') : ''})`;
+
+  // Playing sessions first, then idle.
+  sessions.sort((a, b) => Number(!!b.NowPlayingItem) - Number(!!a.NowPlayingItem));
+
+  const embeds = sessions.map(buildSessionEmbed);
+  const pages = chunk(embeds, MAX_EMBEDS_PER_MESSAGE);
+  await interaction.editReply({ content: header, embeds: pages[0], components: [] });
+  for (let i = 1; i < pages.length; i++) {
+    await interaction.followUp({ embeds: pages[i] });
+  }
+  return true;
 }
 
 async function runSessionPlayback(interaction, jf, action) {
@@ -335,23 +355,22 @@ async function runUserAction(interaction, jf, action, { isAdmin, boundJfName }) 
     }
   }
 
-  const header = `**${action} → ${user.Name}** (${results.length} session${results.length === 1 ? '' : 's'}${tvOnly ? ', TV only' : ''})`;
-  return reply(interaction, `${header}\n${buildResultsBlock(results)}`);
+  const embed = buildResultsEmbed(results, { action, user, tvOnly });
+  return replyEmbeds(interaction, [embed]);
 }
-
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
 
 async function runSystem(interaction, jf, sub) {
   if (sub === 'info') {
     const info = await jf.getSystemInfo();
-    const lines = [
-      `**${info.ServerName || '?'}** — v${info.Version || '?'}`,
-      `OS: ${info.OperatingSystem || info.OperatingSystemDisplayName || '?'}`,
-      `Id: \`${info.Id || '?'}\``,
-    ];
-    return reply(interaction, lines.join('\n'));
+    const embed = new EmbedBuilder()
+      .setColor(COLOR_INFO)
+      .setTitle(`🎥 ${info.ServerName || 'Jellyfin'}`)
+      .addFields(
+        { name: 'Version', value: info.Version || '?', inline: true },
+        { name: 'OS', value: info.OperatingSystem || info.OperatingSystemDisplayName || '?', inline: true },
+        { name: 'Id', value: `\`${info.Id || '?'}\``, inline: false },
+      );
+    return replyEmbeds(interaction, [embed]);
   }
   if (sub === 'restart') {
     await jf.restartSystem();
@@ -364,8 +383,22 @@ async function runSystem(interaction, jf, sub) {
   return reply(interaction, `Unknown system subcommand: ${sub}`);
 }
 
+// ---------------------------------------------------------------------------
+// Reply helpers
+// ---------------------------------------------------------------------------
+
 async function reply(interaction, content) {
-  await interaction.editReply(truncate(content));
+  await interaction.editReply({ content: truncate(content), embeds: [], components: [] });
+  return true;
+}
+
+async function replyEmbeds(interaction, embeds) {
+  // Clear any prior "Thinking!" content; cap to Discord's 10-embed limit.
+  await interaction.editReply({
+    content: '',
+    embeds: embeds.slice(0, MAX_EMBEDS_PER_MESSAGE),
+    components: [],
+  });
   return true;
 }
 
@@ -375,7 +408,7 @@ function truncate(s, max = 1900) {
 }
 
 // ---------------------------------------------------------------------------
-// Rich output helpers
+// Embed builders
 // ---------------------------------------------------------------------------
 
 /** Human-readable "now playing" string from a NowPlayingItem. */
@@ -388,99 +421,119 @@ function nowPlayingDesc(n) {
   return `${series}${ep}${n.Name || '?'}`;
 }
 
-/** Pad/truncate a string to fixed display width. */
-function pad(s, w) {
+/** Truncate to fit Discord's 1024-char field value limit (with safety margin). */
+function clip(s, max = 1000) {
   s = String(s ?? '');
-  if (s.length > w) return s.slice(0, Math.max(0, w - 1)) + '…';
-  return s + ' '.repeat(w - s.length);
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+/** Pick an emoji that roughly matches the client kind. */
+function deviceIcon(s) {
+  if (JellyfinService.looksLikeTV(s)) return '📺';
+  const c = (s.Client || '').toLowerCase();
+  if (c.includes('android') || c.includes('ios') || c.includes('iphone') || c.includes('ipad') || c.includes('mobile')) return '📱';
+  if (c.includes('web')) return '💻';
+  return '🎬';
 }
 
 /**
- * Build the rich /jf sessions output: a playing table, an idle table,
- * and a footer listing session ids for copy-paste into /jf session ....
+ * Build one embed for a single Jellyfin session. Card layout:
+ *   title       📺 alice
+ *   description **Living Room TV** · Jellyfin AndroidTV · 📍 192.168.1.42
+ *   field       ▶ Now Playing  (full width)
+ *   field       Method         (inline)
+ *   field       Transcode      (inline, only when transcoding)
+ *   field       Session ID     (full width, inline code = click to copy)
+ * Color: green = direct play, red = transcoding, grey = idle.
  */
-function buildSessionsBlock(sessions) {
-  const playing = sessions.filter(s => s.NowPlayingItem);
-  const idle = sessions.filter(s => !s.NowPlayingItem);
+function buildSessionEmbed(s) {
+  const playing = !!s.NowPlayingItem;
+  const method = s.PlayState?.PlayMethod || '';
+  const reasons = s.TranscodingInfo?.TranscodeReasons || [];
+  const isTranscode = method === 'Transcode' || reasons.length > 0;
 
-  const parts = [];
-  let n = 0;
-  const indexed = [];
+  let color;
+  if (!playing) color = 0x99AAB5;       // idle grey
+  else if (isTranscode) color = COLOR_ERROR;
+  else color = COLOR_SUCCESS;
 
-  if (playing.length > 0) {
-    parts.push(`▶️ **Playing** (${playing.length})`);
-    parts.push(renderSessionTable(playing, true, ++n - 1, indexed));
-    n = indexed.length;
+  const ip = cleanIp(s.RemoteEndPoint);
+  const descBits = [`**${s.DeviceName || '?'}**`];
+  if (s.Client) descBits.push(s.Client);
+  if (ip) descBits.push(`📍 \`${ip}\``);
+
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(`${deviceIcon(s)} ${s.UserName || '?'}`)
+    .setDescription(descBits.join(' · '));
+
+  if (playing) {
+    embed.addFields({
+      name: '▶ Now Playing',
+      value: clip(nowPlayingDesc(s.NowPlayingItem) || '?'),
+      inline: false,
+    });
   }
-
-  if (idle.length > 0) {
-    if (parts.length > 0) parts.push('—'.repeat(20));
-    parts.push(`⏸️ **Idle** (${idle.length})`);
-    parts.push(renderSessionTable(idle, false, n, indexed));
+  if (method) {
+    embed.addFields({ name: 'Method', value: method, inline: true });
   }
-
-  // Footer: numbered list of session ids so users can copy them out.
-  if (indexed.length > 0) {
-    parts.push('**Session IDs**');
-    parts.push(indexed.map((s, i) => `\`${i + 1}\` \`${s.Id}\` — ${s.UserName || '?'} / ${s.DeviceName || '?'}`).join('\n'));
+  if (reasons.length > 0) {
+    embed.addFields({ name: 'Transcode reasons', value: clip(reasons.join(', ')), inline: true });
   }
+  embed.addFields({ name: 'Session ID', value: `\`${s.Id}\``, inline: false });
 
-  return parts.join('\n');
+  return embed;
+}
+
+/** Normalize Jellyfin's RemoteEndPoint into a plain IP. */
+function cleanIp(ep) {
+  if (!ep) return '';
+  let ip = String(ep);
+  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+  if (/^\d+\.\d+\.\d+\.\d+:\d+$/.test(ip)) ip = ip.split(':')[0];
+  return ip;
 }
 
 /**
- * Render a code-block table for a list of sessions. `withNowPlaying` adds
- * a Now Playing column. Sessions are pushed into `indexed` so the footer
- * can list ids by 1-based index across both tables.
+ * Build the /jf user <action> result embed.
  */
-function renderSessionTable(list, withNowPlaying, startIdx, indexed) {
-  const W = { idx: 3, user: 12, device: 16, client: 20, tv: 3, np: 28 };
-  const head = [
-    pad('#', W.idx),
-    pad('User', W.user),
-    pad('Device', W.device),
-    pad('Client', W.client),
-    pad('TV', W.tv),
-  ];
-  if (withNowPlaying) head.push(pad('Now Playing', W.np));
-  const sep = head.map(h => '─'.repeat(h.length)).join('─┼─');
+function buildResultsEmbed(results, { action, user, tvOnly }) {
+  const ok = results.filter(r => r.ok).length;
+  const fail = results.length - ok;
+  const color = fail === 0 ? COLOR_SUCCESS : ok === 0 ? COLOR_ERROR : COLOR_WARN;
+  const icon = action === 'pause' ? '⏸️' : action === 'stop' ? '⏹️' : '🚪';
 
-  const rows = list.map((s, i) => {
-    indexed.push(s);
-    const idx = startIdx + i + 1;
-    const cells = [
-      pad(String(idx), W.idx),
-      pad(s.UserName || '?', W.user),
-      pad(s.DeviceName || '?', W.device),
-      pad(s.Client || '?', W.client),
-      pad(JellyfinService.looksLikeTV(s) ? '✓' : '', W.tv),
-    ];
-    if (withNowPlaying) cells.push(pad(nowPlayingDesc(s.NowPlayingItem), W.np));
-    return cells.join(' │ ');
-  });
+  const descBits = [
+    `${results.length} session${results.length === 1 ? '' : 's'}`,
+    `${ok} ok`,
+    fail > 0 ? `${fail} failed` : null,
+    tvOnly ? 'TV only' : null,
+  ].filter(Boolean);
 
-  return '```\n' + head.join(' │ ') + '\n' + sep + '\n' + rows.join('\n') + '\n```';
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(`${icon} ${action} → ${user.Name}`)
+    .setDescription(`_${descBits.join(' · ')}_`)
+    .addFields(results.slice(0, MAX_FIELDS_PER_EMBED).map(r => {
+      const mark = r.ok ? '✅' : '❌';
+      const lines = [r.client];
+      if (r.nowPlaying) lines.push(`▶ ${r.nowPlaying}`);
+      lines.push(r.ok ? `_${r.msg}_` : `error: ${r.msg}`);
+      return {
+        name: `${mark} ${r.tv ? '📺 ' : ''}${r.device}`,
+        value: clip(lines.join('\n')),
+        inline: false,
+      };
+    }));
+
+  if (results.length > MAX_FIELDS_PER_EMBED) {
+    embed.setFooter({ text: `…and ${results.length - MAX_FIELDS_PER_EMBED} more (truncated)` });
+  }
+  return embed;
 }
 
-/** Table of results from runUserAction. */
-function buildResultsBlock(results) {
-  const W = { mark: 2, device: 16, client: 20, tv: 3, np: 22, msg: 24 };
-  const head = [
-    pad('', W.mark),
-    pad('Device', W.device),
-    pad('Client', W.client),
-    pad('TV', W.tv),
-    pad('Was Playing', W.np),
-    pad('Result', W.msg),
-  ];
-  const sep = head.map(h => '─'.repeat(h.length)).join('─┼─');
-  const rows = results.map(r => [
-    pad(r.ok ? '✓' : '✗', W.mark),
-    pad(r.device, W.device),
-    pad(r.client, W.client),
-    pad(r.tv ? '✓' : '', W.tv),
-    pad(r.nowPlaying, W.np),
-    pad(r.msg, W.msg),
-  ].join(' │ '));
-  return '```\n' + head.join(' │ ') + '\n' + sep + '\n' + rows.join('\n') + '\n```';
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
