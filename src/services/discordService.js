@@ -91,16 +91,24 @@ class DiscordService {
         return;
       }
 
+      // Canary: gateway/handler lag. Healthy <500ms. >1500ms means duplicate bot
+      // instance, gateway lag, or event-loop starvation — likely to cause 10062.
+      const lagMs = Date.now() - interaction.createdTimestamp;
+      if (lagMs > 1500) {
+        console.warn(`[DiscordService] high interaction lag: ${lagMs}ms (cmd=${interaction.commandName})`);
+      }
+
       // Defer the reply immediately and ensure it completes
       try {
         await interaction.deferReply();
         console.log('[DiscordService] Interaction received, reply deferred:\n\n', interaction.toJSON());
       } catch (deferError) {
-        console.error('[DiscordService] Error deferring reply:', deferError);
-        try {
-          await interaction.reply({ content: 'Error processing command. Please try again.', ephemeral: true });
-        } catch (replyError) {
-          console.error('[DiscordService] Error sending error reply:', replyError);
+        // 10062 Unknown Interaction = token already expired (3s ack window missed).
+        // The token is dead; any followup reply will fail with 40060. Just log and bail.
+        if (deferError?.code === 10062) {
+          console.warn(`[DiscordService] Interaction token expired before defer (cmd=${interaction.commandName}). Discarding.`);
+        } else {
+          console.error('[DiscordService] Error deferring reply:', deferError);
         }
         return;
       }
@@ -232,7 +240,7 @@ class DiscordService {
 
       // First, delete all existing commands to ensure clean state
       console.log('[DiscordService] Deleting all existing commands...');
-      
+
       // Delete global commands
       try {
         console.log('[DiscordService] Deleting global commands...');

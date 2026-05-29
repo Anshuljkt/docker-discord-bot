@@ -58,7 +58,7 @@ deps-update:
 	npm update
 	@echo ""
 	@echo "=== Out-of-range (major) updates needing manual review ==="
-	@if npm outdated --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s||"{}");const k=Object.keys(o);if(!k.length){console.log("✓ none");process.exit(0)}for(const n of k){const i=o[n];console.log(`  ${n}: ${i.current} -> ${i.latest} (wanted ${i.wanted})`)}})'; then :; fi
+	@npm outdated --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s||"{}");const k=Object.keys(o);if(!k.length){console.log("  \u2713 none");return}for(const n of k){const e=Array.isArray(o[n])?o[n][0]:o[n];console.log(`  $${n}: $${e.current} -> $${e.latest} (wanted $${e.wanted})`)}})' || true
 	@echo ""
 	@echo "→ Run audits/tests, then commit package.json + package-lock.json."
 

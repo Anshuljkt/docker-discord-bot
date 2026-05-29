@@ -45,7 +45,20 @@ This folder contains the bot configuration files:
 
 ### Permission System
 
-The permission system uses **exact container names** as they appear in Docker. Users can only see and control containers they have permissions for.
+The `UserPermissions` and `RolePermissions` maps are **per-feature ACLs** read by two
+slash commands:
+
+- `/docker <action> <container>` — uses container-action tokens (`start`, `stop`,
+  `restart`, `exec`) under any container key (`jellyfin`, `fail2ban`, `nginx`, …).
+- `/fail2ban <subcommand>` — uses fail2ban-specific tokens (`view`, `ban`, `unban`)
+  under the `fail2ban` key. (Legacy `banIP` / `unbanIP` are still honored as aliases
+  for `ban` / `unban`.)
+
+`/jf` (Jellyfin API) does **not** use these maps — it gates on `AdminIDs` plus
+`JellyfinSettings.DiscordToJellyfinUserBindings`.
+
+Users in `AdminIDs` bypass all permission checks. Container names must match
+exactly what `docker ps` shows.
 
 #### UserPermissions
 Grant specific permissions to individual users:
@@ -53,14 +66,14 @@ Grant specific permissions to individual users:
 ```json
 "UserPermissions": {
   "exampleAdminUserId": {                    // Replace with actual Discord user ID
-    "jellyfin": ["start", "stop", "restart", "exec", "jfFix"],
-    "fail2ban": ["start", "stop", "restart", "exec", "banIP", "unbanIP"],
+    "jellyfin": ["start", "stop", "restart", "exec"],
+    "fail2ban": ["view", "ban", "unban", "start", "stop", "restart"],
     "nginx": ["start", "stop", "restart"],
     "plex": ["start", "stop", "restart", "exec"]
   },
   "exampleUserId2": {                        // Another user with limited permissions
-    "jellyfin": ["start", "stop", "jfFix"],
-    "fail2ban": ["banIP", "unbanIP"]
+    "jellyfin": ["start", "stop"],
+    "fail2ban": ["view", "ban", "unban"]
   },
   "exampleUserId3": {                        // User with different container access
     "nginx": ["start", "stop", "restart"],
@@ -79,14 +92,11 @@ Grant permissions based on Discord roles:
     "plex": ["start", "stop"]
   },
   "mediaAdminRoleId": {                      // Role for media server admins
-    "jellyfin": ["start", "stop", "restart", "jfFix"],
+    "jellyfin": ["start", "stop", "restart"],
     "plex": ["start", "stop", "restart"]
   },
-  "jellyfinFixerRoleId": {                   // Specialized role - only jfFix permission
-    "jellyfin": ["jfFix"]
-  },
-  "fail2banUnbannerRoleId": {                // Specialized role - only unban permission
-    "fail2ban": ["unbanIP"]
+  "fail2banUnbannerRoleId": {                // Specialized role - only unban
+    "fail2ban": ["view", "unban"]
   }
 }
 ```
@@ -102,21 +112,47 @@ Grant permissions based on Discord roles:
 }
 ```
 
-### Available Commands
-- `start` - Start a container
-- `stop` - Stop a container  
-- `restart` - Restart a container
-- `exec` - Execute commands in container
-- `jfFix` - Jellyfin-specific fix command
-- `banIP` - Ban IP address (fail2ban)
-- `unbanIP` - Unban IP address (fail2ban)
+### Available Permission Tokens
+
+**Docker container actions** (any container key):
+- `start` — Start a container
+- `stop` — Stop a container
+- `restart` — Restart a container
+- `exec` — Execute arbitrary commands in container
+
+**fail2ban actions** (only under the `fail2ban` key):
+- `view` — read-only: `status`, `jails`, `banned`, `check`
+- `ban` — ban an IP in a jail (legacy alias: `banIP`)
+- `unban` — unban an IP from a jail (legacy alias: `unbanIP`)
+
+### Jellyfin Settings
+
+`/jf` uses Jellyfin's HTTP API directly, not Docker. Configure it under
+`JellyfinSettings`:
+
+```json
+"JellyfinSettings": {
+  "BaseUrl": "http://jellyfin.local:8096",
+  "ApiKey": "<- Jellyfin API key (Dashboard > API Keys) ->",
+  "ClientName": "dd-bot",
+  "DeviceName": "dd-bot",
+  "DeviceId": "dd-bot",
+  "DiscordToJellyfinUserBindings": {
+    "379919793333075968": "jellyfinUsername"   // Discord user ID -> Jellyfin username
+  }
+}
+```
+
+Non-admins listed in `DiscordToJellyfinUserBindings` may run `/jf sessions` and
+`/jf user <action>` against **their own** Jellyfin sessions only. All other
+`/jf` subcommands are admin-only.
 
 ### Example Role Configurations
 
 #### Media Admin Role
 ```json
 "mediaAdminRoleId": {
-  "jellyfin": ["start", "stop", "restart", "jfFix"],
+  "jellyfin": ["start", "stop", "restart"],
   "plex": ["start", "stop", "restart"],
   "sonarr": ["start", "stop", "restart"],
   "radarr": ["start", "stop", "restart"]
@@ -131,17 +167,10 @@ Grant permissions based on Discord roles:
 }
 ```
 
-#### Jellyfin Fixer Role (Specialized)
-```json
-"jellyfinFixerRoleId": {
-  "jellyfin": ["jfFix"]
-}
-```
-
 #### Fail2Ban Unbanner Role (Specialized)
 ```json
 "fail2banUnbannerRoleId": {
-  "fail2ban": ["unbanIP"]
+  "fail2ban": ["view", "unban"]
 }
 ```
 

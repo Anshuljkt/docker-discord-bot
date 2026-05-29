@@ -4,17 +4,19 @@ A Discord bot to control Docker containers, written in JavaScript with Discord.j
 
 ## Features
 
-- Start, stop, and restart Docker containers via Discord commands
-- Execute CLI commands inside containers
-- List all containers with their status
-- Role and user-based permissions system
-- Special Jellyfin command for Restarting Jellyfin, Jellystat to mitigate the Thread Pool Starvation Issue (https://github.com/CyferShepard/Jellystat/issues/328), (https://github.com/jellyfin/jellyfin/issues/13377)
+- Start, stop, restart, exec into Docker containers via Discord slash commands
+- List all containers with their status, filterable by name
+- Role- and user-based permission system (per-container action ACLs)
+- `/jf` — Jellyfin server controls via Jellyfin's HTTP API (sessions, devices,
+  users, system). Per-user self-service via Discord-to-Jellyfin user bindings.
+- `/fail2ban` — status, jail listing, banned IPs, ban/unban actions executed
+  inside the `fail2ban` container
 
 ## Installation
 
 ### Prerequisites
 
-- Node.js 16.x or later
+- Node.js 20.x or later
 - Docker (with access to the Docker socket)
 - A Discord bot token
 
@@ -106,13 +108,17 @@ Make sure your `settings/settings.json` file is properly configured before runni
 
 ## Commands
 
-- `/ping` - Test if the bot is responsive
-- `/docker [container] [command]` - Control Docker containers
-- `/list [filter]` - List Docker containers
-- `/admin [subcommand]` - Manage bot administrators
-- `/user [subcommand]` - Manage user permissions
-- `/role [subcommand]` - Manage role permissions
-- `/permission` - Check your permissions
+- `/ping` — Test if the bot is responsive
+- `/list [filter]` — List Docker containers (optionally filtered by name)
+- `/docker <action> [container] [cli]` — Start/stop/restart/exec a container
+- `/fail2ban <subcommand>` — `status` · `jails` · `banned [jail]` ·
+  `check <ip>` · `ban <ip> <jail>` · `unban <ip> [jail]`
+- `/jf <subcommand>` — Jellyfin controls: `sessions`, `session pause|stop|message`,
+  `device logout`, `user pause|stop|logout`, `system info|restart|shutdown`
+- `/permission` — Inspect your current permissions
+
+See [src/services/SETTINGS_README.md](src/services/SETTINGS_README.md) for the
+full permission model.
 
 ## Configuration
 

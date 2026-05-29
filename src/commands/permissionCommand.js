@@ -36,7 +36,7 @@ module.exports = {
             .setRequired(true)
             .addChoices(
               { name: 'User', value: 'user' },
-              { name: 'Role', value: 'role' }
+              { name: 'Role', value: 'role' },
             ))
         .addStringOption(option =>
           option
@@ -55,7 +55,7 @@ module.exports = {
               { name: 'exec', value: 'exec' },
               { name: 'jfFix', value: 'jfFix' },
               { name: 'banIP', value: 'banIP' },
-              { name: 'unbanIP', value: 'unbanIP' }
+              { name: 'unbanIP', value: 'unbanIP' },
             ))
         .addUserOption(option =>
           option
@@ -78,7 +78,7 @@ module.exports = {
             .setRequired(true)
             .addChoices(
               { name: 'User', value: 'user' },
-              { name: 'Role', value: 'role' }
+              { name: 'Role', value: 'role' },
             ))
         .addStringOption(option =>
           option
@@ -97,7 +97,7 @@ module.exports = {
               { name: 'exec', value: 'exec' },
               { name: 'jfFix', value: 'jfFix' },
               { name: 'banIP', value: 'banIP' },
-              { name: 'unbanIP', value: 'unbanIP' }
+              { name: 'unbanIP', value: 'unbanIP' },
             ))
         .addUserOption(option =>
           option
@@ -161,25 +161,25 @@ module.exports = {
       switch (subcommand) {
         case 'view':
           return await this.handleView(interaction, settings, dockerService);
-        
+
         case 'add':
           return await this.handleAdd(interaction, settings, settingsService, dockerService);
-        
+
         case 'remove':
           return await this.handleRemove(interaction, settings, settingsService, dockerService);
-        
+
         case 'list':
           return await this.handleList(interaction, settings);
 
         case 'admin-add':
           return await this.handleAdminAdd(interaction, settings, settingsService);
-        
+
         case 'admin-remove':
           return await this.handleAdminRemove(interaction, settings, settingsService);
-        
+
         case 'admin-list':
           return await this.handleAdminList(interaction, settings);
-        
+
         default:
           await interaction.editReply('❌ Unknown subcommand.');
           return false;
@@ -187,7 +187,7 @@ module.exports = {
 
     } catch (error) {
       console.error('[PermissionCommand] Error in permission command:', error);
-      
+
       try {
         await interaction.editReply('❌ An error occurred while processing the command.');
       } catch (replyError) {
@@ -205,16 +205,16 @@ module.exports = {
       // Show current user's permissions
       const userId = interaction.user.id;
       const userRoles = interaction.member.roles.cache;
-      
+
       await dockerService.dockerUpdate();
       const visibleContainers = getUserVisibleContainers(settings, userId, userRoles);
-      
-      let responseMessage = `**Your Docker Container Permissions:**\n\n`;
-      
+
+      let responseMessage = '**Your Docker Container Permissions:**\n\n';
+
       if (settings.DiscordSettings.AdminIDs.includes(userId)) {
         responseMessage += '🔑 **You are an administrator!** You have full access to all containers.\n\n';
       }
-      
+
       if (visibleContainers.length === 0) {
         responseMessage += '❌ You do not have any container permissions.';
       } else {
@@ -224,7 +224,7 @@ module.exports = {
           responseMessage += `• **${container}**: \`${permissions.join(', ')}\`\n`;
         });
       }
-      
+
       await interaction.editReply(responseMessage);
       return true;
     }
@@ -233,7 +233,7 @@ module.exports = {
       // Show specific user's permissions
       const userPerms = settings.DiscordSettings.UserPermissions[targetUser.id] || {};
       let responseMessage = `**Permissions for ${targetUser.tag}:**\n\n`;
-      
+
       if (Object.keys(userPerms).length === 0) {
         responseMessage += '❌ No user-specific permissions configured.';
       } else {
@@ -241,7 +241,7 @@ module.exports = {
           responseMessage += `• **${container}**: \`${commands.join(', ')}\`\n`;
         });
       }
-      
+
       await interaction.editReply(responseMessage);
       return true;
     }
@@ -250,7 +250,7 @@ module.exports = {
       // Show specific role's permissions
       const rolePerms = settings.DiscordSettings.RolePermissions[targetRole.id] || {};
       let responseMessage = `**Permissions for role ${targetRole.name}:**\n\n`;
-      
+
       if (Object.keys(rolePerms).length === 0) {
         responseMessage += '❌ No permissions configured for this role.';
       } else {
@@ -258,7 +258,7 @@ module.exports = {
           responseMessage += `• **${container}**: \`${commands.join(', ')}\`\n`;
         });
       }
-      
+
       await interaction.editReply(responseMessage);
       return true;
     }
@@ -284,8 +284,8 @@ module.exports = {
     // Verify container exists
     await dockerService.dockerUpdate();
     const containers = await dockerService.dockerUpdate();
-    const containerExists = containers.some(c => 
-      c.Names.some(name => name.replace('/', '') === container)
+    const containerExists = containers.some(c =>
+      c.Names.some(name => name.replace('/', '') === container),
     );
 
     if (!containerExists) {
@@ -301,16 +301,16 @@ module.exports = {
       if (!settings.DiscordSettings.UserPermissions[targetUser.id][container]) {
         settings.DiscordSettings.UserPermissions[targetUser.id][container] = [];
       }
-      
+
       const userPerms = settings.DiscordSettings.UserPermissions[targetUser.id][container];
       if (userPerms.includes(command)) {
         await interaction.editReply(`❌ User ${targetUser.tag} already has "${command}" permission for "${container}".`);
         return false;
       }
-      
+
       userPerms.push(command);
       await settingsService.saveSettings(settings);
-      
+
       await interaction.editReply(`✅ Added "${command}" permission for "${container}" to user ${targetUser.tag}.`);
       return true;
     }
@@ -323,16 +323,16 @@ module.exports = {
       if (!settings.DiscordSettings.RolePermissions[targetRole.id][container]) {
         settings.DiscordSettings.RolePermissions[targetRole.id][container] = [];
       }
-      
+
       const rolePerms = settings.DiscordSettings.RolePermissions[targetRole.id][container];
       if (rolePerms.includes(command)) {
         await interaction.editReply(`❌ Role ${targetRole.name} already has "${command}" permission for "${container}".`);
         return false;
       }
-      
+
       rolePerms.push(command);
       await settingsService.saveSettings(settings);
-      
+
       await interaction.editReply(`✅ Added "${command}" permission for "${container}" to role ${targetRole.name}.`);
       return true;
     }
@@ -362,10 +362,10 @@ module.exports = {
         await interaction.editReply(`❌ User ${targetUser.tag} does not have "${command}" permission for "${container}".`);
         return false;
       }
-      
+
       const index = userPerms.indexOf(command);
       userPerms.splice(index, 1);
-      
+
       // Clean up empty structures
       if (userPerms.length === 0) {
         delete settings.DiscordSettings.UserPermissions[targetUser.id][container];
@@ -373,9 +373,9 @@ module.exports = {
           delete settings.DiscordSettings.UserPermissions[targetUser.id];
         }
       }
-      
+
       await settingsService.saveSettings(settings);
-      
+
       await interaction.editReply(`✅ Removed "${command}" permission for "${container}" from user ${targetUser.tag}.`);
       return true;
     }
@@ -387,10 +387,10 @@ module.exports = {
         await interaction.editReply(`❌ Role ${targetRole.name} does not have "${command}" permission for "${container}".`);
         return false;
       }
-      
+
       const index = rolePerms.indexOf(command);
       rolePerms.splice(index, 1);
-      
+
       // Clean up empty structures
       if (rolePerms.length === 0) {
         delete settings.DiscordSettings.RolePermissions[targetRole.id][container];
@@ -398,9 +398,9 @@ module.exports = {
           delete settings.DiscordSettings.RolePermissions[targetRole.id];
         }
       }
-      
+
       await settingsService.saveSettings(settings);
-      
+
       await interaction.editReply(`✅ Removed "${command}" permission for "${container}" from role ${targetRole.name}.`);
       return true;
     }
@@ -408,11 +408,11 @@ module.exports = {
 
   async handleList(interaction, settings) {
     let responseMessage = '**All Configured Permissions:**\n\n';
-    
+
     // List user permissions
     const userPermissions = settings.DiscordSettings.UserPermissions || {};
     const userCount = Object.keys(userPermissions).length;
-    
+
     responseMessage += `**👤 User Permissions (${userCount} users):**\n`;
     if (userCount === 0) {
       responseMessage += '   ❌ No user permissions configured\n\n';
@@ -425,11 +425,11 @@ module.exports = {
       });
       responseMessage += '\n';
     }
-    
+
     // List role permissions
     const rolePermissions = settings.DiscordSettings.RolePermissions || {};
     const roleCount = Object.keys(rolePermissions).length;
-    
+
     responseMessage += `**🎭 Role Permissions (${roleCount} roles):**\n`;
     if (roleCount === 0) {
       responseMessage += '   ❌ No role permissions configured\n';
@@ -441,7 +441,7 @@ module.exports = {
         });
       });
     }
-    
+
     await interaction.editReply(responseMessage);
     return true;
   },
@@ -476,7 +476,7 @@ module.exports = {
 
     // Prevent removing the last admin
     if (settings.DiscordSettings.AdminIDs.length === 1) {
-      await interaction.editReply(`❌ Cannot remove the last administrator. Add another admin first.`);
+      await interaction.editReply('❌ Cannot remove the last administrator. Add another admin first.');
       return false;
     }
 

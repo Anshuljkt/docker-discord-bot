@@ -355,7 +355,7 @@ class DockerService {
 
     // Wait for containers to stop with retries
     updateProgress('Waiting for containers to stop...');
-    let allStopped = false;
+    let allStopped;
 
     for (let i = 0; i < this.settings.DockerSettings.Retries; i++) {
       updateProgress(`Retry ${i + 1}/${this.settings.DockerSettings.Retries} - Checking container status...`);
@@ -458,7 +458,6 @@ class DockerService {
 
   // fail2ban ban/unban moved to src/services/fail2banService.js (cleaner argv-form
   // exec, jail-scoped operations, and proper IP validation via net.isIP()).
-
 
   /**
    * Helper to get container by name
