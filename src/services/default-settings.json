@@ -14,14 +14,14 @@
     ],
     "UserPermissions": {
       "exampleAdminUserId": {
-        "jellyfin": ["start", "stop", "restart", "exec", "jfFix"],
-        "fail2ban": ["start", "stop", "restart", "exec", "banIP", "unbanIP"],
+        "jellyfin": ["start", "stop", "restart", "exec"],
+        "fail2ban": ["view", "ban", "unban", "start", "stop", "restart"],
         "nginx": ["start", "stop", "restart"],
         "plex": ["start", "stop", "restart", "exec"]
       },
       "exampleUserId2": {
-        "jellyfin": ["start", "stop", "jfFix"],
-        "fail2ban": ["banIP", "unbanIP"]
+        "jellyfin": ["start", "stop"],
+        "fail2ban": ["view", "ban", "unban"]
       },
       "exampleUserId3": {
         "nginx": ["start", "stop", "restart"],
@@ -34,14 +34,11 @@
         "plex": ["start", "stop"]
       },
       "mediaAdminRoleId": {
-        "jellyfin": ["start", "stop", "restart", "jfFix"],
+        "jellyfin": ["start", "stop", "restart"],
         "plex": ["start", "stop", "restart"]
       },
-      "jellyfinFixerRoleId": {
-        "jellyfin": ["jfFix"]
-      },
       "fail2banUnbannerRoleId": {
-        "fail2ban": ["unbanIP"]
+        "fail2ban": ["view", "unban"]
       }
     }
   },
@@ -57,7 +54,7 @@
     "ClientName": "dd-bot",
     "DeviceName": "dd-bot",
     "DeviceId": "dd-bot",
-    "UserBindings": {
+    "DiscordToJellyfinUserBindings": {
       "exampleDiscordUserId": "JellyfinUserName"
     }
   }

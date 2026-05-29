@@ -1,6 +1,6 @@
 {
   "name": "docker-discord-bot",
-  "version": "2.0.0-beta",
+  "version": "2.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -28,11 +28,11 @@
     "@discordjs/rest": "^2.0.0",
     "discord-api-types": "^0.37.61",
     "discord.js": "^14.19.3",
-    "dockerode": "^4.0.6",
+    "dockerode": "^5.0.0",
     "dotenv": "^16.5.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "eslint": "^8.56.0"
+    "eslint": "^8.56.0",
+    "nodemon": "^3.0.2"
   }
 }

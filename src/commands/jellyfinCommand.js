@@ -20,7 +20,7 @@
  *
  * Authorization:
  *   - Admins (DiscordSettings.AdminIDs) can use everything.
- *   - Non-admins listed in JellyfinSettings.UserBindings may use:
+ *   - Non-admins listed in JellyfinSettings.DiscordToJellyfinUserBindings may use:
  *       /jf sessions                       (auto-scoped to themselves)
  *       /jf user <action> self|<own name>  (acts on their own sessions only)
  *     Everything else is denied.
@@ -139,7 +139,7 @@ module.exports = {
       const settings = await settingsService.loadSettings();
 
       const isAdmin = settings.DiscordSettings.AdminIDs.includes(interaction.user.id);
-      const boundJfName = (settings.JellyfinSettings?.UserBindings || {})[interaction.user.id] || null;
+      const boundJfName = (settings.JellyfinSettings?.DiscordToJellyfinUserBindings || {})[interaction.user.id] || null;
 
       // Authorization gate.
       const auth = authorize({ group, sub, isAdmin, boundJfName });
@@ -202,11 +202,11 @@ function authorize({ group, sub, isAdmin, boundJfName }) {
   //   /jf sessions          — auto-scoped to self
   //   /jf user <action>     — only "self" or own bound name (enforced later)
   if (!group && sub === 'sessions') {
-    if (!boundJfName) return { ok: false, reason: 'You are not bound to a Jellyfin user. Ask an admin to add you to `JellyfinSettings.UserBindings`.' };
+    if (!boundJfName) return { ok: false, reason: 'You are not bound to a Jellyfin user. Ask an admin to add you to `JellyfinSettings.DiscordToJellyfinUserBindings`.' };
     return { ok: true };
   }
   if (group === 'user') {
-    if (!boundJfName) return { ok: false, reason: 'You are not bound to a Jellyfin user. Ask an admin to add you to `JellyfinSettings.UserBindings`.' };
+    if (!boundJfName) return { ok: false, reason: 'You are not bound to a Jellyfin user. Ask an admin to add you to `JellyfinSettings.DiscordToJellyfinUserBindings`.' };
     return { ok: true }; // target check happens in runUserAction
   }
 
@@ -291,7 +291,7 @@ async function runUserAction(interaction, jf, action, { isAdmin, boundJfName }) 
     if (boundJfName) {
       userArg = boundJfName;
     } else if (isAdmin) {
-      return reply(interaction, 'Specify `user:` (or add yourself to `JellyfinSettings.UserBindings` to default to self).');
+      return reply(interaction, 'Specify `user:` (or add yourself to `JellyfinSettings.DiscordToJellyfinUserBindings` to default to self).');
     } else {
       return reply(interaction, '⛔ You are not bound to a Jellyfin user.');
     }
@@ -458,8 +458,8 @@ function buildSessionEmbed(s) {
   else color = COLOR_SUCCESS;
 
   const ip = cleanIp(s.RemoteEndPoint);
-  const descBits = [`**${s.DeviceName || '?'}**`];
-  if (s.Client) descBits.push(s.Client);
+  const descBits = [`**${s.Client || '?'}**`];
+  if (s.DeviceName) descBits.push(s.DeviceName);
   if (ip) descBits.push(`📍 \`${ip}\``);
 
   const embed = new EmbedBuilder()
@@ -516,11 +516,11 @@ function buildResultsEmbed(results, { action, user, tvOnly }) {
     .setDescription(`_${descBits.join(' · ')}_`)
     .addFields(results.slice(0, MAX_FIELDS_PER_EMBED).map(r => {
       const mark = r.ok ? '✅' : '❌';
-      const lines = [r.client];
+      const lines = [r.device];
       if (r.nowPlaying) lines.push(`▶ ${r.nowPlaying}`);
       lines.push(r.ok ? `_${r.msg}_` : `error: ${r.msg}`);
       return {
-        name: `${mark} ${r.tv ? '📺 ' : ''}${r.device}`,
+        name: `${mark} ${r.tv ? '📺 ' : ''}${r.client}`,
         value: clip(lines.join('\n')),
         inline: false,
       };

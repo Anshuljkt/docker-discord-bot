@@ -3,27 +3,37 @@
 IMAGE_NAME=anshuljkt1/docker-discord-bot
 VERSION_FILE=package.json
 
-# Extract version from package.json. Mac version.
-EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+[^"]*)".*/\1/')
+# Read the version straight from package.json via node (already a project dep).
+# Override on the CLI: make release VER=1.2.3
+EXTRACTED_VERSION ?= $(shell node -p "require('./$(VERSION_FILE)').version")
 
-# Extract version from package.json. GNU/Linux version.
-# EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "\([0-9]+\.[0-9]+\.[0-9]+[^"]*\)".*/\1/')
+# Git metadata for OCI labels. Falls back to 'unknown' outside a git tree.
+GIT_SHA   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+GIT_DIRTY ?= $(shell git diff --quiet 2>/dev/null || echo -dirty)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# OCI image labels for provenance (visible in Docker Hub, Portainer, `docker inspect`).
+LABELS=\
+  --label org.opencontainers.image.title="docker-discord-bot" \
+  --label org.opencontainers.image.version="$(EXTRACTED_VERSION)" \
+  --label org.opencontainers.image.revision="$(GIT_SHA)$(GIT_DIRTY)" \
+  --label org.opencontainers.image.created="$(BUILD_DATE)" \
+  --label org.opencontainers.image.source="https://github.com/anshuljkt1/dd-bot-js"
 
 # Extra tags can be passed as: make build EXTRA_TAGS="--tag $(IMAGE_NAME):prod"
 EXTRA_TAGS ?=
 TAGS=--tag $(IMAGE_NAME):latest --tag $(IMAGE_NAME):$(EXTRACTED_VERSION) $(EXTRA_TAGS)
 PLATFORMS=linux/amd64,linux/arm64
 
-.PHONY: build dev set-version release tag debug-version debug-build init-buildx init-settings clean help portainer-update test-webhook webhook-debug release-and-deploy
+.PHONY: build dev set-version release tag debug-version debug-build init-buildx init-settings clean help portainer-update test-webhook webhook-debug release-and-deploy deps-sync deps-outdated deps-update check-clean
 
 ## Debug target to show version extraction
 debug-version:
 	@echo "=== Version Debug ==="
 	@echo "VERSION_FILE: $(VERSION_FILE)"
-	@echo "Raw grep output:"
-	@grep '"version"' $(VERSION_FILE)
-	@echo "Extracted version:"
-	@echo $(EXTRACTED_VERSION)
+	@echo "Extracted version: $(EXTRACTED_VERSION)"
+	@echo "Git SHA:           $(GIT_SHA)$(GIT_DIRTY)"
+	@echo "Build date:        $(BUILD_DATE)"
 
 ## Debug build configuration
 debug-build:
@@ -31,6 +41,35 @@ debug-build:
 	@echo "IMAGE_NAME: $(IMAGE_NAME)"
 	@echo "EXTRACTED_VERSION: $(EXTRACTED_VERSION)"
 	@echo "TAGS: $(TAGS)"
+
+## Sync package-lock.json with package.json (run after editing deps).
+deps-sync:
+	@echo "=== Syncing package-lock.json ==="
+	npm install
+
+## Show dependencies with newer versions available (read-only).
+deps-outdated:
+	@echo "=== Outdated dependencies ==="
+	@npm outdated || true
+
+## Apply safe (in-range) dependency updates; list any out-of-range majors that need manual review.
+deps-update:
+	@echo "=== Applying in-range updates ==="
+	npm update
+	@echo ""
+	@echo "=== Out-of-range (major) updates needing manual review ==="
+	@if npm outdated --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s||"{}");const k=Object.keys(o);if(!k.length){console.log("✓ none");process.exit(0)}for(const n of k){const i=o[n];console.log(`  ${n}: ${i.current} -> ${i.latest} (wanted ${i.wanted})`)}})'; then :; fi
+	@echo ""
+	@echo "→ Run audits/tests, then commit package.json + package-lock.json."
+
+## Guard: fail if the git working tree has uncommitted changes.
+check-clean:
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "❌ Refusing to release: git working tree is dirty."; \
+		echo "   Commit or stash your changes first, then re-run."; \
+		git status --short; \
+		exit 1; \
+	fi
 
 ## Build Docker image for current platform
 build: debug-build
@@ -76,16 +115,18 @@ init-buildx:
 	docker buildx create --name ddbot-builder --use || true
 	docker buildx inspect --bootstrap
 
-## Set version, build and push multi-platform image
-release: set-version init-buildx
+## Set version, sync lockfile, verify clean tree, then build and push multi-platform image
+## Order: check-clean (fail fast on WIP) -> set-version -> deps-sync -> build.
+## After release, commit + tag the version bump:
+##   git add package.json package-lock.json && git commit -m "release vX.Y.Z" && git tag vX.Y.Z
+release: check-clean set-version deps-sync init-buildx
 	@echo "=== Building and Pushing Multi-Platform Image ==="
-	docker buildx build --push --platform $(PLATFORMS) $(TAGS) .
+	@echo "Version: $(EXTRACTED_VERSION)  Commit: $(GIT_SHA)$(GIT_DIRTY)  Date: $(BUILD_DATE)"
+	docker buildx build --push --platform $(PLATFORMS) $(TAGS) $(LABELS) .
 
-	@if [ -z "$(VER)" ]; then \
-		echo "🚀 Release complete for version $(EXTRACTED_VERSION)"; \
-	else \
-		echo "🚀 Release complete for version $(VER)"; \
-	fi
+	@echo ""
+	@echo "🚀 Release complete for version $(EXTRACTED_VERSION)"
+	@echo "→ Don't forget: git add package.json package-lock.json && git commit -m 'release v$(EXTRACTED_VERSION)' && git tag v$(EXTRACTED_VERSION)"
 
 ## Tag an existing multi-arch image
 tag:

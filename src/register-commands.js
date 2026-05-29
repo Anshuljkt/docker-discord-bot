@@ -47,9 +47,12 @@ const { SettingsService } = require('./services/settingsService');
 
     console.log(`Found ${commands.length} commands to register.`);
 
-    rest.put(Routes.applicationCommands(clientId), { body: [] })
-      .then(() => console.log('Successfully deleted all global commands.'))
-      .catch(console.error);
+    try {
+      await rest.put(Routes.applicationCommands(clientId), { body: [] });
+      console.log('Successfully deleted all global commands.');
+    } catch (err) {
+      console.error('Failed to delete global commands:', err);
+    }
 
     // Get guild IDs from settings or environment variable
     const guildIds = settings.DiscordSettings.GuildIDs || [];
@@ -65,9 +68,12 @@ const { SettingsService } = require('./services/settingsService');
 
       // Register commands for each specified guild
       for (const guildId of guildIds) {
-        rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] })
-          .then(() => console.log('Successfully deleted all guild commands.'))
-          .catch(console.error);
+        try {
+          await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] });
+          console.log(`Successfully deleted all guild commands for ${guildId}.`);
+        } catch (err) {
+          console.error(`Failed to delete guild commands for ${guildId}:`, err);
+        }
 
         // console.log(`Registering commands for guild ${guildId}...`);
         // try {
