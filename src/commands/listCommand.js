@@ -3,8 +3,6 @@
 */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { DockerService } = require('../services/dockerService');
-const { SettingsService } = require('../services/settingsService');
 const dockerCommand = require('./dockerCommand');
 
 module.exports = {
@@ -27,14 +25,13 @@ module.exports = {
     console.log(`[ListCommand] Executing list command for user: ${interaction.user.tag} (${interaction.user.id})`);
 
     try {
-      console.log('[ListCommand] Creating service instances...');
-      // Create service instances for this command execution
-      const settingsService = new SettingsService();
+      console.log('[ListCommand] Loading services from client...');
+      // Reuse the singletons attached to the client by DiscordService
+      // instead of building fresh instances every invocation.
+      const settingsService = interaction.client.settingsService;
+      const dockerService = interaction.client.dockerService;
       const settings = await settingsService.loadSettings();
       console.log('[ListCommand] Settings loaded successfully');
-
-      const dockerService = new DockerService(settings);
-      console.log('[ListCommand] DockerService instance created');
 
       // Get the filter option (default to 'all' if not provided)
       const filter = interaction.options.getString('filter') || 'all';

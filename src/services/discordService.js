@@ -9,6 +9,7 @@ const path = require('path');
 const { DockerService } = require('./dockerService');
 const { SettingsService } = require('./settingsService');
 const { JellyfinService } = require('./jellyfinService');
+const { Fail2banService } = require('./fail2banService');
 
 // Discord Bot Permissions Int: 412317333568
 class DiscordService {
@@ -27,6 +28,7 @@ class DiscordService {
     this.client.dockerService = dockerService || new DockerService(settings);
     this.client.settingsService = settingsService || new SettingsService();
     this.client.jellyfinService = new JellyfinService(settings);
+    this.client.fail2banService = new Fail2banService({ dockerService: this.client.dockerService });
 
     this.commands = new Collection();
     this.commandsData = [];
@@ -91,8 +93,8 @@ class DiscordService {
 
       // Defer the reply immediately and ensure it completes
       try {
-        await interaction.reply('Thinking!');
-        console.log('[DiscordService] Interaction received, message replied:\n\n', interaction.toJSON());
+        await interaction.deferReply();
+        console.log('[DiscordService] Interaction received, reply deferred:\n\n', interaction.toJSON());
       } catch (deferError) {
         console.error('[DiscordService] Error deferring reply:', deferError);
         try {

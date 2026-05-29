@@ -23,8 +23,7 @@ module.exports = {
           // is moved back into a container and needs the jellyfin+jellystat
           // restart dance.
           // { name: 'jfFix', value: 'jfFix' },
-          { name: 'Ban IP', value: 'banIP' },
-          { name: 'Unban IP', value: 'unbanIP' },
+          // Ban/Unban IP moved to dedicated /fail2ban command.
         ),
     )
     .addStringOption(option =>
@@ -37,12 +36,6 @@ module.exports = {
       option
         .setName('cli')
         .setDescription('Command to execute in the container')
-        .setRequired(false),
-    )
-    .addStringOption(option =>
-      option
-        .setName('ip')
-        .setDescription('IP address to ban/unban (for Fail2Ban commands)')
         .setRequired(false),
     ),
 
@@ -64,9 +57,8 @@ module.exports = {
       const command = interaction.options.getString('command');
       let dockerName = interaction.options.getString('dockername');
       const cliCommand = interaction.options.getString('cli');
-      const ipAddress = interaction.options.getString('ip');
 
-      console.log(`[DockerCommand] Command: ${command}, Container: ${dockerName}, CLI: ${cliCommand || 'N/A'}, IP: ${ipAddress || 'N/A'}`);
+      console.log(`[DockerCommand] Command: ${command}, Container: ${dockerName}, CLI: ${cliCommand || 'N/A'}`);
 
       // jfFix disabled: Jellyfin no longer runs in Docker on this host.
       // // Special case for jfFix command
@@ -74,16 +66,6 @@ module.exports = {
       //   dockerName = 'jellyfin';
       //   console.log('[DockerCommand] jfFix command - targeting jellyfin container');
       // }
-
-      // Special case for banIP/unbanIP commands
-      if (command === 'banIP' || command === 'unbanIP') {
-        if (!ipAddress) {
-          await interaction.editReply(`IP address is required for ${command} command`);
-          return false;
-        }
-        dockerName = 'fail2ban';
-        console.log(`[DockerCommand] ${command} command - targeting fail2ban container for IP: ${ipAddress}`);
-      }
 
       // Check authorization
       console.log('[DockerCommand] Checking authorization...');
@@ -166,35 +148,8 @@ module.exports = {
       //   }
       // }
 
-      // Handle ban/unban IP commands with shared logic
-      if (command === 'banIP' || command === 'unbanIP') {
-        const action = command === 'banIP' ? 'ban' : 'unban';
-        const actionPast = command === 'banIP' ? 'banned' : 'unbanned';
-        const actionGerund = command === 'banIP' ? 'Banning' : 'Unbanning';
-        
-        console.log(`[DockerCommand] Starting ${command} process for IP: ${ipAddress}`);
-        await interaction.editReply(`${actionGerund} IP address: ${ipAddress}...\n\n\`\`\`\nExecuting fail2ban-client ${action} command...\n\`\`\``);
-
-        try {
-          // Run the ban/unban operation using the generic method
-          const result = command === 'banIP' 
-            ? await dockerService.dockerCustomCommandBanIP(ipAddress)
-            : await dockerService.dockerCustomCommandUnbanIP(ipAddress);
-          console.log(`[DockerCommand] ${command} completed`);
-          
-          // Update with completion status
-          if (result.success) {
-            await interaction.editReply(`✅ Successfully ${actionPast} IP: ${ipAddress}\n\n\`\`\`\n${result.output}\n\`\`\``);
-          } else {
-            await interaction.editReply(`❌ Failed to ${action} IP: ${ipAddress}\n\n\`\`\`\n${result.output}\n\`\`\``);
-          }
-          return result.success;
-        } catch (error) {
-          console.error(`[DockerCommand] ${command} failed:`, error);
-          await interaction.editReply(`❌ Error during ${command}: ${error.message}`);
-          return false;
-        }
-      }
+      // Handle ban/unban IP commands
+      // (Moved to /fail2ban command.)
 
       // Execute the command
       console.log(`[DockerCommand] Executing ${command} command on container ${dockerName}...`);
@@ -294,7 +249,8 @@ module.exports = {
     }
 
     const userId = interaction.user.id;
-    const userRoles = interaction.member.roles.cache;
+    // In DMs, roles.cache can be undefined. Treat as no roles.
+    const userRoles = interaction.member.roles?.cache;
 
     // Get user's permissions for this container
     const userPermissions = this.getUserContainerPermissions(settings, userId, userRoles, dockerName);
@@ -322,7 +278,7 @@ module.exports = {
     }
 
     // Add permissions from role-based settings
-    if (settings.DiscordSettings.RolePermissions) {
+    if (settings.DiscordSettings.RolePermissions && userRoles) {
       for (const [roleId, rolePerms] of Object.entries(settings.DiscordSettings.RolePermissions)) {
         if (userRoles.has(roleId) && rolePerms[containerName]) {
           rolePerms[containerName].forEach(perm => {
@@ -353,7 +309,7 @@ module.exports = {
     }
 
     // Add containers from role-based permissions
-    if (settings.DiscordSettings.RolePermissions) {
+    if (settings.DiscordSettings.RolePermissions && userRoles) {
       for (const [roleId, rolePerms] of Object.entries(settings.DiscordSettings.RolePermissions)) {
         if (userRoles.has(roleId)) {
           Object.keys(rolePerms).forEach(container => {
