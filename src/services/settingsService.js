@@ -170,7 +170,7 @@ class SettingsService {
     try {
       // Never persist the DISCORD_TOKEN env override; keep whatever token was on disk.
       const toWrite = process.env.DISCORD_TOKEN
-        ? { ...settings, DiscordSettings: { ...settings.DiscordSettings, Token: this.fileToken } }
+        ? { ...settings, DiscordSettings: { ...settings.DiscordSettings, Token: this.fileToken ?? settings.DiscordSettings?.Token } }
         : settings;
       await fs.writeFile(this.settingsFile, JSON.stringify(toWrite, null, 2), 'utf8');
       this.settings = settings;

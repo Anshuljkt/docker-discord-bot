@@ -191,7 +191,7 @@ portainer-update-local:
 		echo "🔍 Running in verbose mode"; \
 		curl -k -X POST "$$WEBHOOK_URL_LOCAL" \
 			-H "Content-Type: application/json" \
-			-v; \
+			-i -w "\nHTTP Status: %{http_code}  Time: %{time_total}s\n"; \
 		echo ""; \
 	else \
 		curl -k -X POST "$$WEBHOOK_URL_LOCAL" \
@@ -236,7 +236,7 @@ portainer-update:
 			-H "Content-Type: application/json" \
 			-H "CF-Access-Client-Id: $$CF_ACCESS_CLIENT_ID" \
 			-H "CF-Access-Client-Secret: $$CF_ACCESS_CLIENT_SECRET" \
-			-v; \
+			-i -w "\nHTTP Status: %{http_code}  Time: %{time_total}s\n"; \
 		echo ""; \
 	else \
 		curl -X POST "$$WEBHOOK_URL" \

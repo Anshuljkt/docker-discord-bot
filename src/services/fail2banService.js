@@ -136,7 +136,8 @@ class Fail2banService {
       });
       stream = await exec.start();
     } catch (err) {
-      if (err.statusCode === 404 && !refreshed) return this.exec(argv, true);
+      // 404: stale ID after recreate. 409: cached as running but actually stopped/restarting.
+      if ((err.statusCode === 404 || err.statusCode === 409) && !refreshed) return this.exec(argv, true);
       throw err;
     }
 

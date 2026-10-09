@@ -74,8 +74,10 @@ fi
 
 # Extract hostname
 WEBHOOK_HOST=$(echo "$WEBHOOK_URL" | sed -E 's|https?://([^/]+)/.*|\1|')
+# The path holds the webhook token; never print it in full.
+REDACTED_URL=$(echo "$WEBHOOK_URL" | sed -E 's|^(https?://[^/]+)/.*|\1/***|')
 echo -e "${BLUE}Webhook URL analysis:${NC}"
-echo "  Full URL: $WEBHOOK_URL"
+echo "  URL: $REDACTED_URL"
 echo "  Host: $WEBHOOK_HOST"
 echo ""
 
@@ -101,15 +103,15 @@ echo ""
 # Verify webhook ID format
 WEBHOOK_ID=$(echo "$WEBHOOK_URL" | sed -E 's|.*/api/webhooks/([a-zA-Z0-9]+).*|\1|')
 if [[ ${#WEBHOOK_ID} -lt 5 ]]; then
-  echo -e "${YELLOW}Warning: Webhook ID '${WEBHOOK_ID}' seems too short${NC}"
+  echo -e "${YELLOW}Warning: Webhook ID seems too short (${#WEBHOOK_ID} chars)${NC}"
 else
-  echo -e "${BLUE}Webhook ID:${NC} $WEBHOOK_ID (seems valid)"
+  echo -e "${BLUE}Webhook ID:${NC} ${WEBHOOK_ID:0:4}*** (${#WEBHOOK_ID} chars, seems valid)"
 fi
 echo ""
 
 # If in debug mode, exit now
 if [ $DEBUG -eq 1 ]; then
-  echo -e "${YELLOW}DEBUG MODE: Would send POST request to: ${WEBHOOK_URL}${NC}"
+  echo -e "${YELLOW}DEBUG MODE: Would send POST request to: ${REDACTED_URL}${NC}"
   echo "No actual request was sent."
   exit 0
 fi
@@ -118,7 +120,7 @@ fi
 echo -e "${BLUE}Triggering webhook...${NC}"
 if [ $VERBOSE -eq 1 ]; then
   echo -e "${YELLOW}Sending verbose request:${NC}"
-  curl -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -v
+  curl -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -i -w "\nHTTP Status: %{http_code}  Time: %{time_total}s\n"
   echo ""
 else
   RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL" -H "Content-Type: application/json")
