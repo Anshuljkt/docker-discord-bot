@@ -1,0 +1,61 @@
+{
+  "LanguageSettings": {
+    "Language": "en"
+  },
+  "DiscordSettings": {
+    "Token": "<- Paste Your Discord Bot Token here! ->",
+    "AdminIDs": [
+      "123456789012345678",
+      "876543210987654321"
+    ],
+    "GuildIDs": [
+      "123456789012345678",
+      "876543210987654321"
+    ],
+    "UserPermissions": {
+      "exampleAdminUserId": {
+        "jellyfin": ["start", "stop", "restart", "exec"],
+        "fail2ban": ["view", "ban", "unban", "start", "stop", "restart"],
+        "nginx": ["start", "stop", "restart"],
+        "plex": ["start", "stop", "restart", "exec"]
+      },
+      "exampleUserId2": {
+        "jellyfin": ["start", "stop"],
+        "fail2ban": ["view", "ban", "unban"]
+      },
+      "exampleUserId3": {
+        "nginx": ["start", "stop", "restart"],
+        "plex": ["start", "stop"]
+      }
+    },
+    "RolePermissions": {
+      "basicUserRoleId": {
+        "jellyfin": ["start", "stop"],
+        "plex": ["start", "stop"]
+      },
+      "mediaAdminRoleId": {
+        "jellyfin": ["start", "stop", "restart"],
+        "plex": ["start", "stop", "restart"]
+      },
+      "fail2banUnbannerRoleId": {
+        "fail2ban": ["view", "unban"]
+      }
+    }
+  },
+  "DockerSettings": {
+    "BotName": "docker-disco",
+    "Retries": 12,
+    "TimeBeforeRetry": 5,
+    "ContainersPerMessage": 100
+  },
+  "JellyfinSettings": {
+    "BaseUrl": "http://jellyfin.local:8096",
+    "ApiKey": "<- Paste a Jellyfin API key (Dashboard > API Keys) here ->",
+    "ClientName": "dd-bot",
+    "DeviceName": "dd-bot",
+    "DeviceId": "dd-bot",
+    "DiscordToJellyfinUserBindings": {
+      "exampleDiscordUserId": "JellyfinUserName"
+    }
+  }
+}

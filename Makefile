@@ -3,27 +3,37 @@
 IMAGE_NAME=anshuljkt1/docker-discord-bot
 VERSION_FILE=package.json
 
-# Extract version from package.json. Mac version.
-EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "([0-9]+\.[0-9]+\.[0-9]+[^"]*)".*/\1/')
+# Read the version straight from package.json via node (already a project dep).
+# Override on the CLI: make release VER=1.2.3
+EXTRACTED_VERSION ?= $(shell node -p "require('./$(VERSION_FILE)').version")
 
-# Extract version from package.json. GNU/Linux version.
-# EXTRACTED_VERSION ?= $(shell grep -m 1 '"version"' $(VERSION_FILE) | sed -E 's/.*"version": "\([0-9]+\.[0-9]+\.[0-9]+[^"]*\)".*/\1/')
+# Git metadata for OCI labels. Falls back to 'unknown' outside a git tree.
+GIT_SHA   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+GIT_DIRTY ?= $(shell git diff --quiet 2>/dev/null || echo -dirty)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# OCI image labels for provenance (visible in Docker Hub, Portainer, `docker inspect`).
+LABELS=\
+  --label org.opencontainers.image.title="docker-discord-bot" \
+  --label org.opencontainers.image.version="$(EXTRACTED_VERSION)" \
+  --label org.opencontainers.image.revision="$(GIT_SHA)$(GIT_DIRTY)" \
+  --label org.opencontainers.image.created="$(BUILD_DATE)" \
+  --label org.opencontainers.image.source="https://github.com/anshuljkt1/dd-bot-js"
 
 # Extra tags can be passed as: make build EXTRA_TAGS="--tag $(IMAGE_NAME):prod"
 EXTRA_TAGS ?=
 TAGS=--tag $(IMAGE_NAME):latest --tag $(IMAGE_NAME):$(EXTRACTED_VERSION) $(EXTRA_TAGS)
 PLATFORMS=linux/amd64,linux/arm64
 
-.PHONY: build dev set-version release tag debug-version debug-build init-buildx init-settings clean help portainer-update test-webhook webhook-debug release-and-deploy
+.PHONY: build dev set-version release tag debug-version debug-build init-buildx init-settings clean help portainer-update test-webhook webhook-debug release-and-deploy deps-sync deps-outdated deps-update check-clean
 
 ## Debug target to show version extraction
 debug-version:
 	@echo "=== Version Debug ==="
 	@echo "VERSION_FILE: $(VERSION_FILE)"
-	@echo "Raw grep output:"
-	@grep '"version"' $(VERSION_FILE)
-	@echo "Extracted version:"
-	@echo $(EXTRACTED_VERSION)
+	@echo "Extracted version: $(EXTRACTED_VERSION)"
+	@echo "Git SHA:           $(GIT_SHA)$(GIT_DIRTY)"
+	@echo "Build date:        $(BUILD_DATE)"
 
 ## Debug build configuration
 debug-build:
@@ -31,6 +41,35 @@ debug-build:
 	@echo "IMAGE_NAME: $(IMAGE_NAME)"
 	@echo "EXTRACTED_VERSION: $(EXTRACTED_VERSION)"
 	@echo "TAGS: $(TAGS)"
+
+## Sync package-lock.json with package.json (run after editing deps).
+deps-sync:
+	@echo "=== Syncing package-lock.json ==="
+	npm install
+
+## Show dependencies with newer versions available (read-only).
+deps-outdated:
+	@echo "=== Outdated dependencies ==="
+	@npm outdated || true
+
+## Apply safe (in-range) dependency updates; list any out-of-range majors that need manual review.
+deps-update:
+	@echo "=== Applying in-range updates ==="
+	npm update
+	@echo ""
+	@echo "=== Out-of-range (major) updates needing manual review ==="
+	@npm outdated --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s||"{}");const k=Object.keys(o);if(!k.length){console.log("  \u2713 none");return}for(const n of k){const e=Array.isArray(o[n])?o[n][0]:o[n];console.log(`  $${n}: $${e.current} -> $${e.latest} (wanted $${e.wanted})`)}})' || true
+	@echo ""
+	@echo "→ Run audits/tests, then commit package.json + package-lock.json."
+
+## Guard: fail if the git working tree has uncommitted changes.
+check-clean:
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "❌ Refusing to release: git working tree is dirty."; \
+		echo "   Commit or stash your changes first, then re-run."; \
+		git status --short; \
+		exit 1; \
+	fi
 
 ## Build Docker image for current platform
 build: debug-build
@@ -76,16 +115,18 @@ init-buildx:
 	docker buildx create --name ddbot-builder --use || true
 	docker buildx inspect --bootstrap
 
-## Set version, build and push multi-platform image
-release: set-version init-buildx
+## Set version, sync lockfile, verify clean tree, then build and push multi-platform image
+## Order: check-clean (fail fast on WIP) -> set-version -> deps-sync -> build.
+## After release, commit + tag the version bump:
+##   git add package.json package-lock.json && git commit -m "release vX.Y.Z" && git tag vX.Y.Z
+release: check-clean set-version deps-sync init-buildx
 	@echo "=== Building and Pushing Multi-Platform Image ==="
-	docker buildx build --push --platform $(PLATFORMS) $(TAGS) .
+	@echo "Version: $(EXTRACTED_VERSION)  Commit: $(GIT_SHA)$(GIT_DIRTY)  Date: $(BUILD_DATE)"
+	docker buildx build --push --platform $(PLATFORMS) $(TAGS) $(LABELS) .
 
-	@if [ -z "$(VER)" ]; then \
-		echo "🚀 Release complete for version $(EXTRACTED_VERSION)"; \
-	else \
-		echo "🚀 Release complete for version $(VER)"; \
-	fi
+	@echo ""
+	@echo "🚀 Release complete for version $(EXTRACTED_VERSION)"
+	@echo "→ Don't forget: git add package.json package-lock.json && git commit -m 'release v$(EXTRACTED_VERSION)' && git tag v$(EXTRACTED_VERSION)"
 
 ## Tag an existing multi-arch image
 tag:
@@ -118,6 +159,44 @@ clean:
 # Include environment variables from .env file if it exists
 -include .env
 export
+
+## Trigger Portainer webhook to update a stack (local network - no Cloudflare Access)
+portainer-update-local:
+	@echo "=== Checking environment variables ==="
+	@if [ -z "$$WEBHOOK_URL_LOCAL" ]; then \
+		if [ ! -f ".env" ]; then \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not provided and .env file not found"; \
+			echo "Either provide WEBHOOK_URL_LOCAL directly or create a .env file"; \
+			echo "Usage: make portainer-update-local WEBHOOK_URL_LOCAL=http://192.168.1.100:9000/api/webhooks/xxxxxxxx"; \
+			exit 1; \
+		else \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not found in .env file"; \
+			exit 1; \
+		fi; \
+	fi
+	
+	@echo "=== Triggering Local Portainer Webhook ==="
+	@echo "Local Webhook URL: $$WEBHOOK_URL_LOCAL"
+	
+	@if [ "$(DEBUG)" = "true" ]; then \
+		echo "🔍 DEBUG MODE: Not sending actual request"; \
+		echo "Would execute: curl -k -X POST $$WEBHOOK_URL_LOCAL"; \
+		exit 0; \
+	fi
+	
+	@if [ "$(VERBOSE)" = "true" ]; then \
+		echo "🔍 Running in verbose mode"; \
+		curl -k -X POST "$$WEBHOOK_URL_LOCAL" \
+			-H "Content-Type: application/json" \
+			-v; \
+		echo ""; \
+	else \
+		curl -k -X POST "$$WEBHOOK_URL_LOCAL" \
+			-H "Content-Type: application/json" \
+			--fail --show-error && \
+			echo "✅ Local Portainer webhook triggered successfully" || \
+			echo "❌ Failed to trigger local Portainer webhook"; \
+	fi
 
 ## Trigger Portainer webhook to update a stack
 portainer-update:
@@ -179,6 +258,37 @@ release-and-deploy: release
 ## Shorthand for release and update Portainer stack
 release-port: release portainer-update
 
+## Shorthand for release and update Portainer stack (local network)
+release-port-local: release portainer-update-local
+
+
+## make the local Portainer webhook connection without triggering actual update
+test-webhook-local:
+	@echo "=== Checking environment variables ==="
+	@if [ -z "$$WEBHOOK_URL_LOCAL" ]; then \
+		if [ ! -f ".env" ]; then \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not provided and .env file not found"; \
+			echo "Usage: make test-webhook-local WEBHOOK_URL_LOCAL=http://192.168.1.100:9000/api/webhooks/xxxxxxxx"; \
+			exit 1; \
+		else \
+			echo "❌ Error: WEBHOOK_URL_LOCAL not found in .env file"; \
+			exit 1; \
+		fi; \
+	fi
+	
+	@echo "=== Testing Local Portainer Webhook Connection ==="
+	@echo "Local Webhook URL: $$WEBHOOK_URL_LOCAL"
+	@echo "Testing connectivity to local Portainer..."
+	@webhook_host=$$(echo "$$WEBHOOK_URL_LOCAL" | sed -E 's|https?://([^/]+)/.*|\1|'); \
+	echo "Webhook host: $$webhook_host"; \
+	curl -s -o /dev/null -w "HTTP Status: %{http_code}\nResponse time: %{time_total}s\n" \
+		"http://$$webhook_host" || echo "⚠️ Could not connect to local Portainer host"
+	@echo ""
+	@echo "To trigger the local webhook for real, run:"
+	@echo "  make portainer-update-local"
+	@echo ""
+	@echo "To see full request/response details:"
+	@echo "  make portainer-update-local VERBOSE=true"
 
 ## Test the Portainer webhook connection without triggering actual update
 test-webhook:
@@ -257,5 +367,14 @@ help:
 	@echo "  make portainer-update VERBOSE=true   # Show detailed request/response"
 	@echo "  make portainer-update DEBUG=true     # Dry-run without sending request"
 	@echo "  make release-and-deploy VER=1.2.3    # Release and update Portainer"
+	@echo "  make release-port VER=1.2.3          # Release and update Portainer (shorthand)"
+	@echo ""
+	@echo "  # Local network Portainer webhook commands (no authentication required):"
+	@echo "  # Set WEBHOOK_URL_LOCAL in .env file or export it:"
+	@echo "  #   WEBHOOK_URL_LOCAL=http://192.168.1.100:9000/api/webhooks/xxxxxxxx"
+	@echo "  # Then run the commands:"
+	@echo "  make portainer-update-local   # Trigger local Portainer webhook"
+	@echo "  make test-webhook-local       # Test local webhook connectivity"
+	@echo "  make release-port-local VER=1.2.3    # Release and update local Portainer"
 	@echo ""
 	@echo "  # See docs/AUTHENTICATION.md for more information on authentication"

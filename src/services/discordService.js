@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const { DockerService } = require('./dockerService');
 const { SettingsService } = require('./settingsService');
+const { JellyfinService } = require('./jellyfinService');
+const { Fail2banService } = require('./fail2banService');
 
 // Discord Bot Permissions Int: 412317333568
 class DiscordService {
@@ -25,6 +27,8 @@ class DiscordService {
     this.settings = settings;
     this.client.dockerService = dockerService || new DockerService(settings);
     this.client.settingsService = settingsService || new SettingsService();
+    this.client.jellyfinService = new JellyfinService(settings);
+    this.client.fail2banService = new Fail2banService({ dockerService: this.client.dockerService });
 
     this.commands = new Collection();
     this.commandsData = [];
@@ -87,26 +91,24 @@ class DiscordService {
         return;
       }
 
+      // Canary: gateway/handler lag. Healthy <500ms. >1500ms means duplicate bot
+      // instance, gateway lag, or event-loop starvation — likely to cause 10062.
+      const lagMs = Date.now() - interaction.createdTimestamp;
+      if (lagMs > 1500) {
+        console.warn(`[DiscordService] high interaction lag: ${lagMs}ms (cmd=${interaction.commandName})`);
+      }
+
       // Defer the reply immediately and ensure it completes
       try {
-        await interaction.reply('Thinking!');
-        console.log('[DiscordService] Interaction received, message replied:\n\n', interaction.toJSON());
-        //   console.log(`[DiscordService] Interaction received, message deferred:`, {
-        //   type: interaction.type,
-        //   commandName: interaction.commandName || 'N/A',
-        //   user: interaction.user?.tag || 'Unknown',
-        //   userId: interaction.user?.id || 'Unknown',
-        //   guildId: interaction.guildId || 'DM',
-        //   channelId: interaction.channelId || 'Unknown',
-        //   isCommand: interaction.isCommand(),
-        //   timestamp: new Date().toISOString()
-      //   });
+        await interaction.deferReply();
+        console.log('[DiscordService] Interaction received, reply deferred:\n\n', interaction.toJSON());
       } catch (deferError) {
-        console.error('[DiscordService] Error deferring reply:', deferError);
-        try {
-          await interaction.reply({ content: 'Error processing command. Please try again.', ephemeral: true });
-        } catch (replyError) {
-          console.error('[DiscordService] Error sending error reply:', replyError);
+        // 10062 Unknown Interaction = token already expired (3s ack window missed).
+        // The token is dead; any followup reply will fail with 40060. Just log and bail.
+        if (deferError?.code === 10062) {
+          console.warn(`[DiscordService] Interaction token expired before defer (cmd=${interaction.commandName}). Discarding.`);
+        } else {
+          console.error('[DiscordService] Error deferring reply:', deferError);
         }
         return;
       }
@@ -231,7 +233,37 @@ class DiscordService {
     try {
       const rest = new REST().setToken(this.settings.DiscordSettings.Token);
 
-      console.log(`[DiscordService] Started refreshing ${this.commandsData.length} application (/) commands.`);
+      // Get guild IDs from settings
+      const guildIds = this.settings.DiscordSettings.GuildIDs || [];
+
+      let data;
+
+      // First, delete all existing commands to ensure clean state
+      console.log('[DiscordService] Deleting all existing commands...');
+
+      // Delete global commands
+      try {
+        console.log('[DiscordService] Deleting global commands...');
+        await rest.put(Routes.applicationCommands(this.client.user.id), { body: [] });
+        console.log('[DiscordService] ✓ Successfully deleted all global commands');
+      } catch (deleteError) {
+        console.error('[DiscordService] Error deleting global commands:', deleteError);
+      }
+
+      // Delete guild commands for all configured guilds
+      if (guildIds.length > 0) {
+        for (const guildId of guildIds) {
+          try {
+            console.log(`[DiscordService] Deleting guild commands for guild ${guildId}...`);
+            await rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: [] });
+            console.log(`[DiscordService] ✓ Successfully deleted all commands for guild ${guildId}`);
+          } catch (deleteError) {
+            console.error(`[DiscordService] Error deleting commands for guild ${guildId}:`, deleteError);
+          }
+        }
+      }
+
+      console.log(`[DiscordService] Started registering ${this.commandsData.length} application (/) commands.`);
       console.log(`[DiscordService] Bot User ID: ${this.client.user.id}`);
 
       // Log each command being registered
@@ -239,28 +271,14 @@ class DiscordService {
         console.log(`[DiscordService] Command ${index + 1}: ${cmd.name} - ${cmd.description}`);
       });
 
-      // Get guild IDs from settings
-      const guildIds = this.settings.DiscordSettings.GuildIDs || [];
-
-      let data;
-
+      // Now register new commands
       if (guildIds.length > 0) {
         console.log(`[DiscordService] Registering commands for ${guildIds.length} specific guild(s)...`);
-
-        // Delete global commands
-        data = await rest.put(
-          Routes.applicationCommands(this.client.user.id),
-          { body: this.commandsData },
-        );
 
         // Register commands for each guild
         for (const guildId of guildIds) {
           console.log(`[DiscordService] Registering commands for guild ${guildId}...`);
           try {
-            rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: [] })
-              .then(() => console.log('Successfully deleted all guild commands.'))
-              .catch(console.error);
-
             const guildData = await rest.put(
               Routes.applicationGuildCommands(this.client.user.id, guildId),
               { body: this.commandsData },

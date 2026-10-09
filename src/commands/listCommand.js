@@ -3,8 +3,7 @@
 */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { DockerService } = require('../services/dockerService');
-const { SettingsService } = require('../services/settingsService');
+const dockerCommand = require('./dockerCommand');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -26,14 +25,13 @@ module.exports = {
     console.log(`[ListCommand] Executing list command for user: ${interaction.user.tag} (${interaction.user.id})`);
 
     try {
-      console.log('[ListCommand] Creating service instances...');
-      // Create service instances for this command execution
-      const settingsService = new SettingsService();
+      console.log('[ListCommand] Loading services from client...');
+      // Reuse the singletons attached to the client by DiscordService
+      // instead of building fresh instances every invocation.
+      const settingsService = interaction.client.settingsService;
+      const dockerService = interaction.client.dockerService;
       const settings = await settingsService.loadSettings();
       console.log('[ListCommand] Settings loaded successfully');
-
-      const dockerService = new DockerService(settings);
-      console.log('[ListCommand] DockerService instance created');
 
       // Get the filter option (default to 'all' if not provided)
       const filter = interaction.options.getString('filter') || 'all';
@@ -45,24 +43,50 @@ module.exports = {
       const containers = await dockerService.dockerUpdate();
       console.log(`[ListCommand] Retrieved ${containers.length} containers from Docker`);
 
-      // Filter containers based on option
+      // Filter containers based on user permissions
+      let accessibleContainers = containers;
+      const userId = interaction.user.id;
+
+      // If not admin, filter to only containers user has access to
+      if (!settings.DiscordSettings.AdminIDs.includes(userId)) {
+        const userRoles = interaction.member?.roles?.cache;
+        const allowedContainerNames = dockerCommand.getUserVisibleContainers(settings, userId, userRoles);
+
+        accessibleContainers = containers.filter(container => {
+          const containerName = container.Names[0].replace('/', '');
+          return allowedContainerNames.includes(containerName);
+        });
+
+        console.log(`[ListCommand] User ${interaction.user.tag} has access to ${accessibleContainers.length} containers`);
+      } else {
+        console.log(`[ListCommand] User ${interaction.user.tag} is admin - showing all containers`);
+      }
+
+      // Filter containers based on status option
       let filteredContainers;
       if (filter === 'running') {
-        filteredContainers = containers.filter(container => container.State === 'running');
+        filteredContainers = accessibleContainers.filter(container => container.State === 'running');
         console.log(`[ListCommand] Filtered to ${filteredContainers.length} running containers`);
       } else if (filter === 'stopped') {
-        filteredContainers = containers.filter(container => container.State !== 'running');
+        filteredContainers = accessibleContainers.filter(container => container.State !== 'running');
         console.log(`[ListCommand] Filtered to ${filteredContainers.length} stopped containers`);
       } else {
-        filteredContainers = containers;
-        console.log(`[ListCommand] Showing all ${filteredContainers.length} containers`);
+        filteredContainers = accessibleContainers;
+        console.log(`[ListCommand] Showing all ${filteredContainers.length} accessible containers`);
       }
 
       // Check if there are containers to display
       if (filteredContainers.length === 0) {
-        console.log(`[ListCommand] No ${filter !== 'all' ? filter : ''} containers found, sending empty response`);
-        return interaction.editReply(`No ${filter !== 'all' ? filter : ''} containers found.`);
-        // return true;
+        let message;
+        if (containers.length === 0) {
+          message = 'No containers found on the Docker host.';
+        } else if (accessibleContainers.length === 0) {
+          message = `You don't have permission to view any of the ${containers.length} container(s) on this host.`;
+        } else {
+          message = `No ${filter !== 'all' ? filter + ' ' : ''}containers found (you have access to ${accessibleContainers.length}).`;
+        }
+        console.log(`[ListCommand] No containers to show: ${message}`);
+        return interaction.editReply(message);
       }
 
       // Find the longest container name for formatting

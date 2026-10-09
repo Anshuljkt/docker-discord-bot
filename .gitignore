@@ -15,7 +15,6 @@ yarn.lock
 
 # User settings
 settings/*
-!settings/.gitkeep
 
 # Runtime data
 pids/

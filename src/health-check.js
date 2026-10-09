@@ -53,7 +53,10 @@ function startServer() {
  * Handle incoming health check requests
  */
 async function handleRequest(req, res) {
-  console.log(`[HealthCheck] Received health check request from ${req.socket.remoteAddress}`);
+  // Only log health checks in development or if they fail
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[HealthCheck] Received health check request from ${req.socket.remoteAddress}`);
+  }
 
   if (req.url === '/health') {
     try {
@@ -92,36 +95,23 @@ async function handleRequest(req, res) {
  * @returns {Object} Health check results
  */
 async function checkHealth() {
-  // Start with base health information
+  // Lightweight health check - focus on essential services only
   const health = {
-    status: 'healthy', // Default to healthy, will be downgraded if issues found
+    status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: Math.floor((Date.now() - startTime) / 1000), // Uptime in seconds
-    version: process.env.npm_package_version || 'unknown',
-    system: {
-      platform: process.platform,
-      arch: process.arch,
-      nodeVersion: process.version,
-      memory: {
-        total: Math.round(os.totalmem() / 1024 / 1024) + 'MB',
-        free: Math.round(os.freemem() / 1024 / 1024) + 'MB',
-        usage: Math.round((1 - os.freemem() / os.totalmem()) * 100) + '%',
-      },
-      cpuUsage: process.cpuUsage(),
-    },
+    uptime: Math.floor((Date.now() - startTime) / 1000),
     services: {
       discord: { status: 'unknown' },
       docker: { status: 'unknown' },
     },
   };
 
-  // Check Discord connection
+  // Check Discord connection (lightweight)
   if (discordClient) {
     try {
       health.services.discord = {
         status: discordClient.isReady() ? 'connected' : 'disconnected',
-        ping: discordClient.ws.ping + 'ms',
-        guilds: discordClient.guilds?.cache?.size || 0,
+        ping: discordClient.ws.ping,
       };
 
       if (health.services.discord.status !== 'connected') {
@@ -139,17 +129,15 @@ async function checkHealth() {
     health.status = 'degraded';
   }
 
-  // Check Docker connectivity
+  // Check Docker connectivity (lightweight - just socket availability)
   try {
-    if (dockerService) {
-      const containers = await dockerService.dockerUpdate();
-      health.services.docker = {
-        status: 'connected',
-        containers: containers?.length || 0,
-      };
+    if (dockerService && dockerService.docker) {
+      // Just ping Docker daemon instead of listing containers
+      await dockerService.docker.ping();
+      health.services.docker = { status: 'connected' };
     } else {
-      // Fallback: Try a simple Docker command if service isn't available
-      await execAsync('docker ps -q');
+      // Fallback: Quick Docker socket test
+      await execAsync('docker version --format "{{.Server.Version}}"', { timeout: 2000 });
       health.services.docker = { status: 'available' };
     }
   } catch (error) {
@@ -160,10 +148,11 @@ async function checkHealth() {
     health.status = 'degraded';
   }
 
-  // Check for critical memory usage (>90%)
-  if (os.freemem() / os.totalmem() < 0.1) {
+  // Quick memory check (only if critical)
+  const freeMemPercent = os.freemem() / os.totalmem();
+  if (freeMemPercent < 0.05) { // Only warn if < 5% free (was 10%)
     health.status = 'degraded';
-    health.system.memory.warning = 'Critical memory usage detected';
+    health.memory_warning = 'Critical memory usage detected';
   }
 
   return health;

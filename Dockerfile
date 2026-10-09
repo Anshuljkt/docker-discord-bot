@@ -1,55 +1,48 @@
-# Optimized two-stage build for Node.js Discord bot
+# syntax=docker/dockerfile:1.7
+# Two-stage build using the official Node slim image (multi-arch: amd64+arm64).
+# Stage 1 (deps):    installs production node_modules.
+# Stage 2 (runtime): installs tini + curl, copies node_modules + source, runs as non-root.
 
-# Stage 1: Build stage with all dependencies
-FROM node:18-alpine AS builder
+ARG NODE_VERSION=20
+
+# ---- Stage 1: dependencies ----------------------------------------------------
+FROM node:${NODE_VERSION}-slim AS deps
+WORKDIR /app
+
+# npm ci requires package-lock.json; build fails fast if it's missing/stale.
+COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
+
+# ---- Stage 2: runtime ---------------------------------------------------------
+FROM node:${NODE_VERSION}-slim AS runtime
+ENV NODE_ENV=production \
+    HEALTH_CHECK_PORT=3021
 
 WORKDIR /app
 
-# Install build dependencies only when needed
-RUN apk add --no-cache python3 make g++
+# tini for PID 1 signal handling; curl for the HEALTHCHECK probe.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+      tini curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy package files first for better caching
-COPY package*.json ./
+# Pre-built production node_modules from the deps stage.
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 
-# Install all dependencies (including dev dependencies for potential build steps)
-RUN npm install
+# Application source. Keep this list tight — anything not here stays out of the image.
+COPY --chown=node:node package.json package-lock.json index.js ./
+COPY --chown=node:node src ./src
 
-# Copy source code
-COPY . .
+# Writable settings directory owned by the runtime user.
+RUN mkdir -p /app/settings && chown -R node:node /app/settings
 
-# Clean up build dependencies
-RUN apk del python3 make g++
+USER node
+EXPOSE 3021
 
-# Stage 2: Production runtime
-FROM node:18-alpine AS production
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -fsS "http://localhost:${HEALTH_CHECK_PORT}/health" || exit 1
 
-WORKDIR /app
-
-# Set production environment
-ENV NODE_ENV=production
-
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm install --omit=dev --no-optional --prefer-offline && \
-    npm cache clean --force && \
-    rm -rf /tmp/* /var/cache/apk/*
-
-# Copy application files from builder
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/index.js ./
-COPY --from=builder /app/test-container-states.js ./
-COPY --from=builder /app/test-docker.js ./
-
-# Create settings directory
-RUN mkdir -p /app/settings && \
-    chmod -R 777 /app
-
-# Health check configuration
-ENV HEALTH_CHECK_PORT=3021
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:$HEALTH_CHECK_PORT/health || exit 1
-
-# Run the application
-CMD ["node", "index.js"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "--unhandled-rejections=strict", "--trace-warnings", "index.js"]
