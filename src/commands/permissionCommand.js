@@ -52,8 +52,11 @@ module.exports = {
               { name: 'restart', value: 'restart' },
               { name: 'exec', value: 'exec' },
               { name: 'jfFix', value: 'jfFix' },
-              { name: 'banIP', value: 'banIP' },
-              { name: 'unbanIP', value: 'unbanIP' },
+              { name: 'view (fail2ban)', value: 'view' },
+              { name: 'ban (fail2ban)', value: 'ban' },
+              { name: 'unban (fail2ban)', value: 'unban' },
+              { name: 'banIP (legacy alias of ban)', value: 'banIP' },
+              { name: 'unbanIP (legacy alias of unban)', value: 'unbanIP' },
             ))
         .addUserOption(option =>
           option
@@ -94,8 +97,11 @@ module.exports = {
               { name: 'restart', value: 'restart' },
               { name: 'exec', value: 'exec' },
               { name: 'jfFix', value: 'jfFix' },
-              { name: 'banIP', value: 'banIP' },
-              { name: 'unbanIP', value: 'unbanIP' },
+              { name: 'view (fail2ban)', value: 'view' },
+              { name: 'ban (fail2ban)', value: 'ban' },
+              { name: 'unban (fail2ban)', value: 'unban' },
+              { name: 'banIP (legacy alias of ban)', value: 'banIP' },
+              { name: 'unbanIP (legacy alias of unban)', value: 'unbanIP' },
             ))
         .addUserOption(option =>
           option
@@ -140,7 +146,8 @@ module.exports = {
 
     try {
       const { settingsService, dockerService } = interaction.client;
-      const settings = await settingsService.loadSettings();
+      // Edit a copy: saveSettings() only swaps it into the cache once the write succeeds.
+      const settings = structuredClone(await settingsService.loadSettings());
 
       const userId = interaction.user.id;
       const isAdmin = settings.DiscordSettings.AdminIDs.includes(userId);

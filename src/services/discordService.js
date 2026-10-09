@@ -324,65 +324,6 @@ class DiscordService {
     }
     return true;
   }
-
-  /**
-   * Check if a user has admin permissions
-   * @param {string} userId - Discord User ID
-   * @returns {boolean} Whether the user is an admin
-   */
-  isAdmin(userId) {
-    // Check if the user ID is in the admin IDs array
-    return this.settings.DiscordSettings.AdminIDs.includes(userId);
-  }
-
-  /**
-   * Check if a user has permission for a container
-   * @param {string} userId - Discord User ID
-   * @param {Array<string>} userRoles - Array of role IDs the user has
-   * @param {string} containerId - Container ID
-   * @param {string} operation - Operation type ('start' or 'stop')
-   * @returns {boolean} Whether the user has permission
-   */
-  hasContainerPermission(userId, userRoles, containerId, operation) {
-    // Admins always have permission
-    if (this.isAdmin(userId)) return true;
-
-    // Check user permissions based on operation type
-    if (operation === 'start') {
-      // Check user start permissions
-      if (this.settings.DiscordSettings.UserStartPermissions[userId] &&
-          this.settings.DiscordSettings.UserStartPermissions[userId].includes(containerId)) {
-        return true;
-      }
-    } else if (operation === 'stop' || operation === 'restart') {
-      // Check user stop permissions
-      if (this.settings.DiscordSettings.UserStopPermissions[userId] &&
-          this.settings.DiscordSettings.UserStopPermissions[userId].includes(containerId)) {
-        return true;
-      }
-    }
-
-    // Check role permissions based on operation type
-    if (userRoles && userRoles.length > 0) {
-      if (operation === 'start') {
-        // Check role start permissions
-        for (const [roleId, containers] of Object.entries(this.settings.DiscordSettings.RoleStartPermissions)) {
-          if (userRoles.includes(roleId) && containers.includes(containerId)) {
-            return true;
-          }
-        }
-      } else if (operation === 'stop' || operation === 'restart') {
-        // Check role stop permissions
-        for (const [roleId, containers] of Object.entries(this.settings.DiscordSettings.RoleStopPermissions)) {
-          if (userRoles.includes(roleId) && containers.includes(containerId)) {
-            return true;
-          }
-        }
-      }
-    }
-
-    return false;
-  }
 }
 
 // Export the class rather than an instance to allow proper initialization with settings

@@ -9,7 +9,7 @@
  *   await fb.serverStatus()                 -> { jailList: [...], total: number, raw }
  *   await fb.jailStatus(jail)               -> { currentlyFailed, totalFailed, currentlyBanned, totalBanned, bannedIPs, raw }
  *   await fb.bannedIPs(jail)                -> string[]                    // alias for jailStatus(jail).bannedIPs
- *   await fb.findIP(ip)                     -> { jail: string, banned: boolean }[]
+ *   await fb.findIP(ip)                     -> { hits: { jail, banned }[], failed: { jail, error }[] }
  *   await fb.ban(ip, jail)                  -> { ok, raw }
  *   await fb.unban(ip, jail?)               -> { ok, raw }
  *
@@ -37,7 +37,7 @@ class Fail2banService {
   // ---- public API ---------------------------------------------------------
 
   async serverStatus() {
-    const { stdout } = await this.exec(['fail2ban-client', 'status']);
+    const stdout = await this.execOk(['fail2ban-client', 'status']);
     const jails = (stdout.match(/Jail list:\s*([^\n]*)/i)?.[1] || '')
       .split(',')
       .map(s => s.trim())
@@ -48,7 +48,7 @@ class Fail2banService {
 
   async jailStatus(jail) {
     assertSafeJailName(jail);
-    const { stdout } = await this.exec(['fail2ban-client', 'status', jail]);
+    const stdout = await this.execOk(['fail2ban-client', 'status', jail]);
     const num = (label) => Number(stdout.match(new RegExp(`${label}:\\s*(\\d+)`, 'i'))?.[1] || 0);
     const ipsLine = stdout.match(/Banned IP list:\s*([^\n]*)/i)?.[1] || '';
     const bannedIPs = ipsLine.split(/\s+/).filter(Boolean);
@@ -67,31 +67,33 @@ class Fail2banService {
   }
 
   /**
-   * Search every jail for `ip`. Returns one entry per jail with banned=true.
+   * Search every jail for `ip`. `hits` lists jails where it is banned;
+   * `failed` lists jails that couldn't be read, so a miss there is unknown.
    */
   async findIP(ip) {
     assertSafeIP(ip);
     const { jailList } = await this.serverStatus();
     const hits = [];
+    const failed = [];
     for (const jail of jailList) {
       try {
         const ips = await this.bannedIPs(jail);
         if (ips.includes(ip)) hits.push({ jail, banned: true });
       } catch (e) {
-        // Skip jails we can't read instead of failing the whole query.
         console.warn(`[Fail2banService] status ${jail} failed: ${e.message}`);
+        failed.push({ jail, error: e.message });
       }
     }
-    return hits;
+    return { hits, failed };
   }
 
   async ban(ip, jail) {
     assertSafeIP(ip);
     assertSafeJailName(jail);
-    const { stdout, exitCode } = await this.exec(['fail2ban-client', 'set', jail, 'banip', ip]);
+    const { stdout, stderr, exitCode } = await this.exec(['fail2ban-client', 'set', jail, 'banip', ip]);
     // fail2ban-client prints "1" on success (1 IP banned) and "0" if already banned.
     const ok = exitCode === 0;
-    return { ok, raw: stdout };
+    return { ok, raw: ok ? stdout : (stderr || stdout) };
   }
 
   async unban(ip, jail) {
@@ -103,11 +105,22 @@ class Fail2banService {
     } else {
       argv = ['fail2ban-client', 'unban', ip];
     }
-    const { stdout, exitCode } = await this.exec(argv);
-    return { ok: exitCode === 0, raw: stdout };
+    const { stdout, stderr, exitCode } = await this.exec(argv);
+    const ok = exitCode === 0;
+    return { ok, raw: ok ? stdout : (stderr || stdout) };
   }
 
   // ---- internals ----------------------------------------------------------
+
+  /** exec() that throws on a non-zero exit, so failures aren't parsed as empty output. */
+  async execOk(argv) {
+    const { stdout, stderr, exitCode } = await this.exec(argv);
+    if (exitCode !== 0) {
+      const detail = (stderr || stdout).trim() || '(no output)';
+      throw new Error(`\`${argv.join(' ')}\` exited with ${exitCode}: ${detail}`);
+    }
+    return stdout;
+  }
 
   /**
    * Exec an argv (no shell) inside the fail2ban container and return

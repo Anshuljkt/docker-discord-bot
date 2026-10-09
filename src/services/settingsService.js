@@ -103,18 +103,22 @@ class SettingsService {
     try {
       console.log(`[SettingsService] Reading settings from: ${this.settingsFile}`);
       const data = await fs.readFile(this.settingsFile, 'utf8');
-      this.settings = JSON.parse(data);
-      this.fileToken = this.settings.DiscordSettings?.Token;
+      const settings = JSON.parse(data);
+      const fileToken = settings.DiscordSettings?.Token;
 
       if (process.env.DISCORD_TOKEN) {
-        this.settings.DiscordSettings.Token = process.env.DISCORD_TOKEN;
+        settings.DiscordSettings.Token = process.env.DISCORD_TOKEN;
         console.log('[SettingsService] Applied Discord token from environment variable');
       }
 
+      this.migrateLegacyPermissions(settings);
+
       console.log('[SettingsService] Settings loaded and parsed successfully');
 
-      // Validate critical settings before proceeding
-      this.validateSettings();
+      // Validate before caching so a bad config is re-checked on the next load.
+      this.validateSettings(settings);
+      this.settings = settings;
+      this.fileToken = fileToken;
 
       console.log('[SettingsService] Settings validation:');
       console.log('  - Token present:', !!this.settings.DiscordSettings?.Token);
@@ -189,11 +193,45 @@ class SettingsService {
   }
 
   /**
+   * Convert 1.x maps ({User,Role}{Start,Stop}Permissions: id -> [containerName])
+   * into UserPermissions/RolePermissions (id -> containerName -> [actions]).
+   * Legacy keys are dropped so the next save writes only the new schema.
+   */
+  migrateLegacyPermissions(settings) {
+    const ds = settings.DiscordSettings;
+    if (!ds) return;
+    ds.UserPermissions ??= {};
+    ds.RolePermissions ??= {};
+
+    // In 1.x the Stop list also authorized restart.
+    const legacy = [
+      ['UserStartPermissions', 'UserPermissions', ['start']],
+      ['UserStopPermissions', 'UserPermissions', ['stop', 'restart']],
+      ['RoleStartPermissions', 'RolePermissions', ['start']],
+      ['RoleStopPermissions', 'RolePermissions', ['stop', 'restart']],
+    ];
+    for (const [oldKey, newKey, actions] of legacy) {
+      if (!ds[oldKey]) continue;
+      for (const [id, containers] of Object.entries(ds[oldKey])) {
+        for (const container of Array.isArray(containers) ? containers : []) {
+          ds[newKey][id] ??= {};
+          const perms = (ds[newKey][id][container] ??= []);
+          for (const action of actions) {
+            if (!perms.includes(action)) perms.push(action);
+          }
+        }
+      }
+      delete ds[oldKey];
+      console.warn(`[SettingsService] Migrated legacy ${oldKey} into ${newKey} (saved on next settings write)`);
+    }
+  }
+
+  /**
    * Validate that settings are properly configured and not using default placeholder values
    * @throws {Error} If settings contain placeholder values or are invalid
    */
-  validateSettings() {
-    if (!this.settings) {
+  validateSettings(settings = this.settings) {
+    if (!settings) {
       throw new Error('Settings not loaded');
     }
 
@@ -201,13 +239,13 @@ class SettingsService {
     const warnings = [];
 
     // Validate Discord Token
-    const token = this.settings.DiscordSettings?.Token;
+    const token = settings.DiscordSettings?.Token;
     if (!token || token.includes('<-') || token.includes('Paste Your') || token.length < 50) {
       errors.push('Discord bot token is not configured. Please set a valid bot token in settings.json');
     }
 
     // Validate Admin IDs
-    const adminIDs = this.settings.DiscordSettings?.AdminIDs || [];
+    const adminIDs = settings.DiscordSettings?.AdminIDs || [];
     if (adminIDs.length === 0) {
       errors.push('No admin users configured. At least one admin ID is required.');
     } else {
@@ -221,7 +259,7 @@ class SettingsService {
     }
 
     // Validate Guild IDs
-    const guildIDs = this.settings.DiscordSettings?.GuildIDs || [];
+    const guildIDs = settings.DiscordSettings?.GuildIDs || [];
     if (guildIDs.length === 0) {
       warnings.push('No guild IDs configured. Bot commands will not work in any Discord servers.');
     } else {
@@ -235,7 +273,7 @@ class SettingsService {
     }
 
     // Check for placeholder user permissions
-    const userPermissions = this.settings.DiscordSettings?.UserPermissions || {};
+    const userPermissions = settings.DiscordSettings?.UserPermissions || {};
     const placeholderUsers = Object.keys(userPermissions).filter(userId =>
       userId.startsWith('example') || userId.startsWith('123456') || userId.startsWith('876543'),
     );
@@ -244,7 +282,7 @@ class SettingsService {
     }
 
     // Check for placeholder role permissions
-    const rolePermissions = this.settings.DiscordSettings?.RolePermissions || {};
+    const rolePermissions = settings.DiscordSettings?.RolePermissions || {};
     const placeholderRoles = Object.keys(rolePermissions).filter(roleId =>
       roleId.includes('RoleId') || roleId.startsWith('123456') || roleId.startsWith('876543'),
     );

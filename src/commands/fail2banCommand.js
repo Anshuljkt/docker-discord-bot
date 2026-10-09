@@ -149,7 +149,7 @@ async function runStatus(interaction, fb) {
       : `**${s.total}** jail${s.total === 1 ? '' : 's'} active`)
     .addFields({
       name: 'Jails',
-      value: s.jailList.length > 0 ? s.jailList.map(j => `\`${j}\``).join(', ') : '—',
+      value: s.jailList.length > 0 ? clip(s.jailList.map(j => `\`${j}\``).join(', ')) : '—',
       inline: false,
     });
   await interaction.editReply({ content: '', embeds: [embed] });
@@ -178,17 +178,13 @@ async function runJails(interaction, fb) {
     .setTitle('🛡️ fail2ban jails')
     .setDescription(`**${totalBanned}** IP${totalBanned === 1 ? '' : 's'} currently banned across ${jailList.length} jail${jailList.length === 1 ? '' : 's'}`);
 
-  for (const s of stats) {
-    if (!s.ok) {
-      embed.addFields({ name: `❌ ${s.jail}`, value: clip(s.error), inline: true });
-    } else {
-      embed.addFields({
-        name: s.jail,
-        value: `**${s.currentlyBanned}** banned · ${s.totalBanned} total · ${s.currentlyFailed} failing`,
-        inline: true,
-      });
+  addCappedFields(embed, stats.map(s => s.ok
+    ? {
+      name: s.jail,
+      value: `**${s.currentlyBanned}** banned · ${s.totalBanned} total · ${s.currentlyFailed} failing`,
+      inline: true,
     }
-  }
+    : { name: `❌ ${s.jail}`, value: clip(s.error), inline: true }));
   await interaction.editReply({ content: '', embeds: [embed] });
   return true;
 }
@@ -219,32 +215,37 @@ async function runBanned(interaction, fb) {
     .setTitle(`🚫 banned IPs${jailArg ? ` — ${jailArg}` : ''}`)
     .setDescription(`**${total}** currently banned`);
 
-  for (const g of groups) {
-    if (g.error) {
-      embed.addFields({ name: `❌ ${g.jail}`, value: clip(g.error), inline: false });
-    } else if (g.ips.length === 0) {
-      embed.addFields({ name: g.jail, value: '_(none)_', inline: true });
-    } else {
-      embed.addFields({
-        name: `${g.jail} (${g.ips.length})`,
-        value: clip(g.ips.map(ip => `\`${ip}\``).join('\n')),
-        inline: false,
-      });
-    }
-  }
+  addCappedFields(embed, groups.map(g => {
+    if (g.error) return { name: `❌ ${g.jail}`, value: clip(g.error), inline: false };
+    if (g.ips.length === 0) return { name: g.jail, value: '_(none)_', inline: true };
+    return {
+      name: `${g.jail} (${g.ips.length})`,
+      value: clip(g.ips.map(ip => `\`${ip}\``).join('\n')),
+      inline: false,
+    };
+  }));
   await interaction.editReply({ content: '', embeds: [embed] });
   return true;
 }
 
 async function runCheck(interaction, fb) {
   const ip = interaction.options.getString('ip');
-  const hits = await fb.findIP(ip);
+  const { hits, failed } = await fb.findIP(ip);
+  const lines = [];
+  if (hits.length > 0) {
+    lines.push(`🚫 Banned in **${hits.length}** jail${hits.length === 1 ? '' : 's'}: ${hits.map(h => `\`${h.jail}\``).join(', ')}`);
+  } else if (failed.length === 0) {
+    lines.push('✅ Not currently banned in any jail.');
+  } else {
+    lines.push('❔ Not banned in any jail that could be read.');
+  }
+  if (failed.length > 0) {
+    lines.push(`⚠️ Could not read: ${failed.map(f => `\`${f.jail}\``).join(', ')}`);
+  }
   const embed = new EmbedBuilder()
-    .setColor(hits.length > 0 ? COLOR_WARN : COLOR_SUCCESS)
+    .setColor(hits.length > 0 || failed.length > 0 ? COLOR_WARN : COLOR_SUCCESS)
     .setTitle(`🔎 \`${ip}\``)
-    .setDescription(hits.length === 0
-      ? '✅ Not currently banned in any jail.'
-      : `🚫 Banned in **${hits.length}** jail${hits.length === 1 ? '' : 's'}: ${hits.map(h => `\`${h.jail}\``).join(', ')}`);
+    .setDescription(clip(lines.join('\n'), 4000));
   await interaction.editReply({ content: '', embeds: [embed] });
   return true;
 }
@@ -280,4 +281,27 @@ async function runUnban(interaction, fb) {
 function clip(s, max = 1000) {
   s = String(s ?? '');
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+// Discord embeds allow at most 25 fields and 6000 characters in total.
+const MAX_FIELDS = 25;
+const MAX_EMBED_CHARS = 5500;
+
+/** Add as many fields as fit, then a final "N more not shown" field. */
+function addCappedFields(embed, fields) {
+  let used = (embed.data.title?.length || 0) + (embed.data.description?.length || 0);
+  const kept = [];
+  for (let i = 0; i < fields.length; i++) {
+    const isLast = i === fields.length - 1;
+    const slots = isLast ? MAX_FIELDS : MAX_FIELDS - 1; // reserve one for the overflow note
+    const size = fields[i].name.length + fields[i].value.length;
+    if (kept.length >= slots || used + size > MAX_EMBED_CHARS) break;
+    kept.push(fields[i]);
+    used += size;
+  }
+  const dropped = fields.length - kept.length;
+  if (dropped > 0) {
+    kept.push({ name: '…', value: `${dropped} more jail${dropped === 1 ? '' : 's'} not shown`, inline: false });
+  }
+  if (kept.length > 0) embed.addFields(kept);
 }

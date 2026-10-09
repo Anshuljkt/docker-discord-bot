@@ -16,7 +16,7 @@ A Discord bot to control Docker containers, written in JavaScript with Discord.j
 
 ### Prerequisites
 
-- Node.js 20.x or later
+- Node.js 20.19+ (or 22.13+ / 24+) — required by ESLint 10 and `@stylistic/eslint-plugin`
 - Docker (with access to the Docker socket)
 - A Discord bot token
 
@@ -86,11 +86,17 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=225231
    ```
    npm install
    ```
-3. Configure your Discord bot token in `settings/settings.json` (see Discord Bot Setup section above)
-4. Update other settings in `settings/settings.json` as needed:
+3. Create your settings file. The bot does **not** create `settings/settings.json`
+   for you — on startup it only writes the latest template to
+   `settings/settings_default.json` and exits if `settings.json` is missing:
+   ```
+   mkdir -p settings && cp src/services/default-settings.json settings/settings.json
+   ```
+4. Configure your Discord bot token in `settings/settings.json` (see Discord Bot Setup section above)
+5. Update other settings in `settings/settings.json` as needed:
    - Add your Discord User ID to `AdminIDs` array
    - Configure Docker settings if needed
-5. Start the bot:
+6. Start the bot:
    ```
    node index.js
    ```
@@ -109,13 +115,15 @@ Make sure your `settings/settings.json` file is properly configured before runni
 ## Commands
 
 - `/ping` — Test if the bot is responsive
-- `/list [filter]` — List Docker containers (optionally filtered by name)
+- `/list [filter]` — List Docker containers you can access, filtered by status (`running`, `stopped`, `all`)
 - `/docker <action> [container] [cli]` — Start/stop/restart/exec a container
 - `/fail2ban <subcommand>` — `status` · `jails` · `banned [jail]` ·
   `check <ip>` · `ban <ip> <jail>` · `unban <ip> [jail]`
 - `/jf <subcommand>` — Jellyfin controls: `sessions`, `session pause|stop|message`,
   `device logout`, `user pause|stop|logout`, `system info|restart|shutdown`
-- `/permission` — Inspect your current permissions
+- `/permission` — **Admin only** (Discord Administrator + `AdminIDs`): `view` / `add` /
+  `remove` / `list` user and role permissions, and `admin-add` / `admin-remove` /
+  `admin-list` bot admins
 
 See [src/services/SETTINGS_README.md](src/services/SETTINGS_README.md) for the
 full permission model.
