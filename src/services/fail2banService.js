@@ -127,19 +127,19 @@ class Fail2banService {
     }
 
     const container = this.dockerService.docker.getContainer(meta.Id);
-    let exec;
+    let exec, stream;
     try {
       exec = await container.exec({
         Cmd: argv,                // argv form: no shell interpretation
         AttachStdout: true,
         AttachStderr: true,
       });
+      stream = await exec.start();
     } catch (err) {
       if (err.statusCode === 404 && !refreshed) return this.exec(argv, true);
       throw err;
     }
 
-    const stream = await exec.start();
     const { stdout, stderr } = await collectStream(container, stream, EXEC_TIMEOUT_MS);
     const inspect = await exec.inspect();
     return { stdout, stderr, exitCode: inspect.ExitCode ?? -1 };
