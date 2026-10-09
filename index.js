@@ -113,7 +113,7 @@ async function main() {
       console.error('[MAIN] 1. Edit settings/settings.json');
       console.error('[MAIN] 2. Replace placeholder values with real Discord IDs');
       console.error('[MAIN] 3. Set your actual Discord bot token');
-      console.error('[MAIN] 4. See settings/README.md for detailed instructions');
+      console.error('[MAIN] 4. See settings/SETTINGS_README.md for detailed instructions');
       console.error('[MAIN] ');
     } else if (error.message.includes('token') || error.message.includes('Unauthorized')) {
       console.error('[MAIN] ');

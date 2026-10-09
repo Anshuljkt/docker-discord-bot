@@ -114,17 +114,30 @@ class Fail2banService {
    * { stdout, stderr, exitCode }. Throws if the container is missing or
    * not running, or the exec itself errors.
    */
-  async exec(argv) {
+  async exec(argv, refreshed = false) {
+    // The container list is cached (refreshed every 60s), so a recreated
+    // fail2ban container leaves a stale ID behind; re-query once and retry.
+    if (refreshed) await this.dockerService.dockerUpdate();
+
     const meta = this.dockerService.getContainerByName(this.containerName);
-    if (!meta) throw new Error(`fail2ban container '${this.containerName}' not found`);
-    if (meta.State !== 'running') throw new Error(`fail2ban container '${this.containerName}' is not running (state=${meta.State})`);
+    if (!meta || meta.State !== 'running') {
+      if (!refreshed) return this.exec(argv, true);
+      if (!meta) throw new Error(`fail2ban container '${this.containerName}' not found`);
+      throw new Error(`fail2ban container '${this.containerName}' is not running (state=${meta.State})`);
+    }
 
     const container = this.dockerService.docker.getContainer(meta.Id);
-    const exec = await container.exec({
-      Cmd: argv,                  // argv form: no shell interpretation
-      AttachStdout: true,
-      AttachStderr: true,
-    });
+    let exec;
+    try {
+      exec = await container.exec({
+        Cmd: argv,                // argv form: no shell interpretation
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+    } catch (err) {
+      if (err.statusCode === 404 && !refreshed) return this.exec(argv, true);
+      throw err;
+    }
 
     const stream = await exec.start();
     const { stdout, stderr } = await collectStream(container, stream, EXEC_TIMEOUT_MS);

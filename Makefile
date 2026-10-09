@@ -160,6 +160,9 @@ clean:
 -include .env
 export
 
+# Webhook URLs embed a secret token in the path; print scheme+host only.
+REDACT_URL = sed -E 's|^(https?://[^/]+)/.*|\1/***|'
+
 ## Trigger Portainer webhook to update a stack (local network - no Cloudflare Access)
 portainer-update-local:
 	@echo "=== Checking environment variables ==="
@@ -176,11 +179,11 @@ portainer-update-local:
 	fi
 	
 	@echo "=== Triggering Local Portainer Webhook ==="
-	@echo "Local Webhook URL: $$WEBHOOK_URL_LOCAL"
+	@echo "Local Webhook URL: $$(echo "$$WEBHOOK_URL_LOCAL" | $(REDACT_URL))"
 	
 	@if [ "$(DEBUG)" = "true" ]; then \
 		echo "🔍 DEBUG MODE: Not sending actual request"; \
-		echo "Would execute: curl -k -X POST $$WEBHOOK_URL_LOCAL"; \
+		echo "Would execute: curl -k -X POST $$(echo "$$WEBHOOK_URL_LOCAL" | $(REDACT_URL))"; \
 		exit 0; \
 	fi
 	
@@ -219,11 +222,11 @@ portainer-update:
 	fi
 	
 	@echo "=== Triggering Portainer Webhook ==="
-	@echo "Webhook URL: $$WEBHOOK_URL"
+	@echo "Webhook URL: $$(echo "$$WEBHOOK_URL" | $(REDACT_URL))"
 	
 	@if [ "$(DEBUG)" = "true" ]; then \
 		echo "🔍 DEBUG MODE: Not sending actual request"; \
-		echo "Would execute: curl -X POST $$WEBHOOK_URL -H \"CF-Access-Client-Id: $$CF_ACCESS_CLIENT_ID\" -H \"CF-Access-Client-Secret: $$CF_ACCESS_CLIENT_SECRET\""; \
+		echo "Would execute: curl -X POST $$(echo "$$WEBHOOK_URL" | $(REDACT_URL)) -H \"CF-Access-Client-Id: ***\" -H \"CF-Access-Client-Secret: ***\""; \
 		exit 0; \
 	fi
 	
@@ -277,7 +280,7 @@ test-webhook-local:
 	fi
 	
 	@echo "=== Testing Local Portainer Webhook Connection ==="
-	@echo "Local Webhook URL: $$WEBHOOK_URL_LOCAL"
+	@echo "Local Webhook URL: $$(echo "$$WEBHOOK_URL_LOCAL" | $(REDACT_URL))"
 	@echo "Testing connectivity to local Portainer..."
 	@webhook_host=$$(echo "$$WEBHOOK_URL_LOCAL" | sed -E 's|https?://([^/]+)/.*|\1|'); \
 	echo "Webhook host: $$webhook_host"; \
@@ -305,7 +308,7 @@ test-webhook:
 	fi
 	
 	@echo "=== Testing Portainer Webhook Connection ==="
-	@echo "Webhook URL: $$WEBHOOK_URL"
+	@echo "Webhook URL: $$(echo "$$WEBHOOK_URL" | $(REDACT_URL))"
 	@echo "Testing connectivity to Portainer..."
 	@webhook_host=$$(echo "$$WEBHOOK_URL" | sed -E 's|https?://([^/]+)/.*|\1|'); \
 	echo "Webhook host: $$webhook_host"; \

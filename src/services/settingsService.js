@@ -104,6 +104,7 @@ class SettingsService {
       console.log(`[SettingsService] Reading settings from: ${this.settingsFile}`);
       const data = await fs.readFile(this.settingsFile, 'utf8');
       this.settings = JSON.parse(data);
+      this.fileToken = this.settings.DiscordSettings?.Token;
 
       if (process.env.DISCORD_TOKEN) {
         this.settings.DiscordSettings.Token = process.env.DISCORD_TOKEN;
@@ -153,9 +154,7 @@ class SettingsService {
       console.error(`[SettingsService] Error loading settings: ${error.message}`);
 
       if (error.code === 'ENOENT') {
-        console.log('[SettingsService] Settings file not found, copying from default...');
-        this.copyDefaultToSettings();
-        return this.loadSettings();
+        throw new Error('settings.json missing - please create from template (see settings_default.json)', { cause: error });
       }
       throw error;
     }
@@ -169,7 +168,11 @@ class SettingsService {
   async saveSettings(settings) {
     console.log('[SettingsService] Saving settings...');
     try {
-      await fs.writeFile(this.settingsFile, JSON.stringify(settings, null, 2), 'utf8');
+      // Never persist the DISCORD_TOKEN env override; keep whatever token was on disk.
+      const toWrite = process.env.DISCORD_TOKEN
+        ? { ...settings, DiscordSettings: { ...settings.DiscordSettings, Token: this.fileToken } }
+        : settings;
+      await fs.writeFile(this.settingsFile, JSON.stringify(toWrite, null, 2), 'utf8');
       this.settings = settings;
       console.log('[SettingsService] Settings saved successfully');
     } catch (error) {
@@ -259,7 +262,7 @@ class SettingsService {
     if (errors.length > 0) {
       console.error('[SettingsService] Critical configuration errors:');
       errors.forEach(error => console.error(`  ❌ ${error}`));
-      console.error('[SettingsService] Please check the README.md in the settings folder for configuration instructions.');
+      console.error('[SettingsService] Please check settings/SETTINGS_README.md for configuration instructions.');
       throw new Error(`Configuration validation failed: ${errors.join('; ')}`);
     }
 

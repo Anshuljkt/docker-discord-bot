@@ -3,8 +3,6 @@
 */
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { DockerService } = require('../services/dockerService');
-const { SettingsService } = require('../services/settingsService');
 const { getUserVisibleContainers, getUserContainerPermissions } = require('./dockerCommand');
 
 module.exports = {
@@ -141,11 +139,7 @@ module.exports = {
     console.log(`[PermissionCommand] Executing permission command for user: ${interaction.user.tag} (${interaction.user.id})`);
 
     try {
-      await interaction.deferReply();
-
-      // Create service instances
-      const settingsService = new SettingsService();
-      const dockerService = new DockerService();
+      const { settingsService, dockerService } = interaction.client;
       const settings = await settingsService.loadSettings();
 
       const userId = interaction.user.id;
