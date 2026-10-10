@@ -16,7 +16,7 @@ A Discord bot to control Docker containers, written in JavaScript with Discord.j
 
 ### Prerequisites
 
-- Node.js 20.19+ (or 22.13+ / 24+) — required by ESLint 10 and `@stylistic/eslint-plugin`
+- Node.js 24 recommended (the Docker image uses 24 LTS); minimum 20.19+ / 22.13+ — required by ESLint 10 and `@stylistic/eslint-plugin`
 - Docker (with access to the Docker socket)
 - A Discord bot token
 
@@ -106,11 +106,20 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=225231
 You can also run the bot in Docker:
 
 ```bash
-docker build -t docker-discord-bot .
-docker run -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/settings:/app/settings docker-discord-bot
+docker run -d --name docker-discord-bot \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/settings:/app/settings \
+  -p 3021:3021 \
+  anshuljkt1/docker-discord-bot:latest
 ```
 
-Make sure your `settings/settings.json` file is properly configured before running the Docker container.
+Make sure your `settings/settings.json` file is properly configured before running the Docker container,
+and that `settings/` is writable by uid 1000.
+
+The image is **distroless** (Node 24, no shell or curl). If you override the health check in
+compose/Portainer, use the Node-based check from [DOCKER.md](DOCKER.md#health-check) — the old
+`curl -f ...` check no longer works. See [DOCKER.md](DOCKER.md#debugging) for how to debug
+without a shell, and for build/release details.
 
 ## Commands
 
