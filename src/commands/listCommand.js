@@ -39,7 +39,6 @@ module.exports = {
 
       // Update container list
       console.log('[ListCommand] Updating container list...');
-      await dockerService.dockerUpdate();
       const containers = await dockerService.dockerUpdate();
       console.log(`[ListCommand] Retrieved ${containers.length} containers from Docker`);
 
@@ -142,12 +141,13 @@ module.exports = {
       console.error('[ListCommand] Error stack:', error.stack);
 
       try {
+        const msg = `An error occurred while fetching the container list: ${error.message}`;
         if (interaction.deferred) {
-          await interaction.editReply('An error occurred while fetching the container list.');
+          await interaction.editReply(msg);
         } else if (!interaction.replied) {
-          await interaction.reply({ content: 'An error occurred while fetching the container list.', flags: 64 });
+          await interaction.reply({ content: msg, flags: 64 });
         } else {
-          await interaction.followUp({ content: 'An error occurred while fetching the container list.', flags: 64 });
+          await interaction.followUp({ content: msg, flags: 64 });
         }
       } catch (replyError) {
         console.error('[ListCommand] Error sending error reply:', replyError);

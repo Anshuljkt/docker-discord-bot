@@ -10,7 +10,6 @@ class DockerService {
     // Connect to Docker socket
     this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
     this.containers = [];
-    this.updateInterval = null;
     this.settings = settings;
   }
 
@@ -41,15 +40,6 @@ class DockerService {
   }
 
   /**
-   * Initialize the Docker service
-   */
-  async init() {
-    await this.dockerUpdate();
-    // Set up periodic updates
-    this.updateInterval = setInterval(() => this.dockerUpdate(), 60000); // Update every minute
-  }
-
-  /**
    * Update container list from Docker API
    */
   async dockerUpdate() {
@@ -65,7 +55,8 @@ class DockerService {
       return this.containers;
     } catch (error) {
       console.error(`Error updating containers: ${error.message}`);
-      return [];
+      // Throw rather than return [] so callers don't report "container doesn't exist" when Docker is unreachable.
+      throw new Error(`Cannot reach Docker API: ${error.message}`, { cause: error });
     }
   }
 
@@ -120,7 +111,7 @@ class DockerService {
       const afterInspect = await container.inspect();
       this.logAndOutput(`Container state after start: ${JSON.stringify(afterInspect.State)}`);
 
-      await this.dockerUpdate();
+      await this.dockerUpdate().catch(() => {});
 
       if (afterInspect.State.Running) {
         this.logAndOutput(`✓ Container ${containerName} started successfully`, output);
@@ -173,7 +164,7 @@ class DockerService {
       const afterInspect = await container.inspect();
       this.logAndOutput(`Container state after stop: ${JSON.stringify(afterInspect.State)}`);
 
-      await this.dockerUpdate();
+      await this.dockerUpdate().catch(() => {});
 
       if (!afterInspect.State.Running) {
         this.logAndOutput(`✓ Container ${containerName} stopped successfully`, output);
@@ -221,7 +212,7 @@ class DockerService {
       const afterInspect = await container.inspect();
       this.logAndOutput(`Container state after restart: ${JSON.stringify(afterInspect.State)}`);
 
-      await this.dockerUpdate();
+      await this.dockerUpdate().catch(() => {});
 
       if (afterInspect.State.Running) {
         this.logAndOutput(`✓ Container ${containerName} restarted successfully`, output);

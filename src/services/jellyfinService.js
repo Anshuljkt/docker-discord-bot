@@ -14,7 +14,8 @@ class JellyfinService {
   constructor(settings) {
     const jf = settings?.JellyfinSettings || {};
     this.baseUrl = (jf.BaseUrl || '').replace(/\/+$/, '');
-    this.apiKey = jf.ApiKey || '';
+    // Treat the template placeholder ("<- Paste ... ->") as unset.
+    this.apiKey = jf.ApiKey && !jf.ApiKey.includes('<-') ? jf.ApiKey : '';
     this.clientName = jf.ClientName || 'dd-bot';
     this.deviceName = jf.DeviceName || 'dd-bot';
     this.deviceId = jf.DeviceId || 'dd-bot';

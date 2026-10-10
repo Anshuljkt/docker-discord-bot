@@ -3,8 +3,6 @@
 */
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { DockerService } = require('../services/dockerService');
-const { SettingsService } = require('../services/settingsService');
 const { getUserVisibleContainers, getUserContainerPermissions } = require('./dockerCommand');
 
 module.exports = {
@@ -54,8 +52,11 @@ module.exports = {
               { name: 'restart', value: 'restart' },
               { name: 'exec', value: 'exec' },
               { name: 'jfFix', value: 'jfFix' },
-              { name: 'banIP', value: 'banIP' },
-              { name: 'unbanIP', value: 'unbanIP' },
+              { name: 'view (fail2ban)', value: 'view' },
+              { name: 'ban (fail2ban)', value: 'ban' },
+              { name: 'unban (fail2ban)', value: 'unban' },
+              { name: 'banIP (legacy alias of ban)', value: 'banIP' },
+              { name: 'unbanIP (legacy alias of unban)', value: 'unbanIP' },
             ))
         .addUserOption(option =>
           option
@@ -96,8 +97,11 @@ module.exports = {
               { name: 'restart', value: 'restart' },
               { name: 'exec', value: 'exec' },
               { name: 'jfFix', value: 'jfFix' },
-              { name: 'banIP', value: 'banIP' },
-              { name: 'unbanIP', value: 'unbanIP' },
+              { name: 'view (fail2ban)', value: 'view' },
+              { name: 'ban (fail2ban)', value: 'ban' },
+              { name: 'unban (fail2ban)', value: 'unban' },
+              { name: 'banIP (legacy alias of ban)', value: 'banIP' },
+              { name: 'unbanIP (legacy alias of unban)', value: 'unbanIP' },
             ))
         .addUserOption(option =>
           option
@@ -141,12 +145,9 @@ module.exports = {
     console.log(`[PermissionCommand] Executing permission command for user: ${interaction.user.tag} (${interaction.user.id})`);
 
     try {
-      await interaction.deferReply();
-
-      // Create service instances
-      const settingsService = new SettingsService();
-      const dockerService = new DockerService();
-      const settings = await settingsService.loadSettings();
+      const { settingsService, dockerService } = interaction.client;
+      // Edit a copy: saveSettings() only swaps it into the cache once the write succeeds.
+      const settings = structuredClone(await settingsService.loadSettings());
 
       const userId = interaction.user.id;
       const isAdmin = settings.DiscordSettings.AdminIDs.includes(userId);
@@ -282,7 +283,6 @@ module.exports = {
     }
 
     // Verify container exists
-    await dockerService.dockerUpdate();
     const containers = await dockerService.dockerUpdate();
     const containerExists = containers.some(c =>
       c.Names.some(name => name.replace('/', '') === container),

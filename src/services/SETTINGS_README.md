@@ -7,37 +7,51 @@ This folder contains the bot configuration files:
 ### `settings.json`
 - **Your active configuration** - This is what the bot uses
 - Edit this file to customize your bot settings
-- Gets created automatically from `default-settings.json` on first run
+- **Not created automatically** - copy it from `settings_default.json` (see Getting Started)
 - **Pure JSON** - No comments allowed
 
-### `default-settings.json`
+### `settings_default.json`
 - **Reference template** - Shows all available options with examples
-- Always stays unchanged - use as a reference
+- Overwritten with the latest template every time the bot starts - don't edit it
 - Copy sections from here to your `settings.json` as needed
 - **Pure JSON** - Valid JSON format for easy parsing
 
+### `SETTINGS_README.md`
+- This guide; also refreshed on every start
+
 ## Getting Started
 
-1. **First Run**: When you start the bot, `settings.json` will be created automatically from the default template
-2. **Configuration**: Edit `settings.json` with your Discord token, admin IDs, and guild IDs
-3. **Permissions**: Set up user and role permissions in the `UserPermissions` and `RolePermissions` sections
-4. **Reference**: Check `default-settings.json` for examples of permission configurations
+1. **First Run**: Start the bot once. It writes `settings_default.json` and this guide into
+   `settings/`, then exits because `settings.json` is missing
+2. **Create settings.json**: Copy `settings_default.json` to `settings.json`
+3. **Configuration**: Edit `settings.json` with your Discord token, admin IDs, and guild IDs
+4. **Permissions**: Set up user and role permissions in the `UserPermissions` and `RolePermissions` sections
+5. **Reference**: Check `settings_default.json` for examples of permission configurations
+
+Upgrading from 1.x? The old `UserStartPermissions` / `UserStopPermissions` /
+`RoleStartPermissions` / `RoleStopPermissions` maps are converted automatically on load
+(Start → `start`; Stop → `stop` + `restart`). The converted form is written to
+`settings.json` the next time the bot saves settings (e.g. via `/permission add`).
 
 ## Configuration Details
 
 ### Required Settings
 
+- `Token` - your bot token (or set the `DISCORD_TOKEN` env var instead)
+- `AdminIDs` - Discord user IDs of bot admins (replace the example IDs)
+- `GuildIDs` - Discord server IDs to register commands in (replace the example IDs)
+
 ```json
 {
   "DiscordSettings": {
-    "Token": "<- Paste Your Discord Bot Token here! ->",  // Or set DISCORD_TOKEN env var
+    "Token": "<- Paste Your Discord Bot Token here! ->",
     "AdminIDs": [
-      "123456789012345678",  // Replace with actual admin user IDs
-      "876543210987654321"   // Another example admin ID
+      "123456789012345678",
+      "876543210987654321"
     ],
     "GuildIDs": [
-      "123456789012345678",  // Replace with actual guild (server) IDs to enable commands on
-      "876543210987654321"   // Another example guild ID
+      "123456789012345678",
+      "876543210987654321"
     ]
   }
 }
@@ -61,21 +75,22 @@ Users in `AdminIDs` bypass all permission checks. Container names must match
 exactly what `docker ps` shows.
 
 #### UserPermissions
-Grant specific permissions to individual users:
+Grant specific permissions to individual users. Replace `exampleAdminUserId` etc.
+with real Discord user IDs:
 
 ```json
 "UserPermissions": {
-  "exampleAdminUserId": {                    // Replace with actual Discord user ID
+  "exampleAdminUserId": {
     "jellyfin": ["start", "stop", "restart", "exec"],
     "fail2ban": ["view", "ban", "unban", "start", "stop", "restart"],
     "nginx": ["start", "stop", "restart"],
     "plex": ["start", "stop", "restart", "exec"]
   },
-  "exampleUserId2": {                        // Another user with limited permissions
+  "exampleUserId2": {
     "jellyfin": ["start", "stop"],
     "fail2ban": ["view", "ban", "unban"]
   },
-  "exampleUserId3": {                        // User with different container access
+  "exampleUserId3": {
     "nginx": ["start", "stop", "restart"],
     "plex": ["start", "stop"]
   }
@@ -83,19 +98,20 @@ Grant specific permissions to individual users:
 ```
 
 #### RolePermissions
-Grant permissions based on Discord roles:
+Grant permissions based on Discord roles. Replace `basicUserRoleId` etc. with real
+Discord role IDs:
 
 ```json
 "RolePermissions": {
-  "basicUserRoleId": {                       // Replace with actual Discord role ID
+  "basicUserRoleId": {
     "jellyfin": ["start", "stop"],
     "plex": ["start", "stop"]
   },
-  "mediaAdminRoleId": {                      // Role for media server admins
+  "mediaAdminRoleId": {
     "jellyfin": ["start", "stop", "restart"],
     "plex": ["start", "stop", "restart"]
   },
-  "fail2banUnbannerRoleId": {                // Specialized role - only unban
+  "fail2banUnbannerRoleId": {
     "fail2ban": ["view", "unban"]
   }
 }
@@ -103,12 +119,17 @@ Grant permissions based on Discord roles:
 
 ### Docker Settings
 
+- `BotName` - display name for the bot
+- `Retries` - retry attempts for Docker operations
+- `TimeBeforeRetry` - seconds to wait between retries
+- `ContainersPerMessage` - maximum containers shown per Discord message
+
 ```json
 "DockerSettings": {
-  "BotName": "docker-disco",                 // Display name for the bot (customizable)
-  "Retries": 12,                             // Number of retry attempts for Docker operations
-  "TimeBeforeRetry": 5,                      // Seconds to wait between retries
-  "ContainersPerMessage": 100                // Maximum containers shown per Discord message
+  "BotName": "docker-disco",
+  "Retries": 12,
+  "TimeBeforeRetry": 5,
+  "ContainersPerMessage": 100
 }
 ```
 
@@ -130,6 +151,8 @@ Grant permissions based on Discord roles:
 `/jf` uses Jellyfin's HTTP API directly, not Docker. Configure it under
 `JellyfinSettings`:
 
+`DiscordToJellyfinUserBindings` maps a Discord user ID to a Jellyfin username:
+
 ```json
 "JellyfinSettings": {
   "BaseUrl": "http://jellyfin.local:8096",
@@ -138,7 +161,7 @@ Grant permissions based on Discord roles:
   "DeviceName": "dd-bot",
   "DeviceId": "dd-bot",
   "DiscordToJellyfinUserBindings": {
-    "379919793333075968": "jellyfinUsername"   // Discord user ID -> Jellyfin username
+    "379919793333075968": "jellyfinUsername"
   }
 }
 ```

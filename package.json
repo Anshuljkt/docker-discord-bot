@@ -1,10 +1,10 @@
 {
   "name": "docker-discord-bot",
-  "version": "2.0.1",
+  "version": "2.1.2",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
+    "dev": "node --watch index.js",
     "lint": "eslint .",
     "docker:build": "docker build -t docker-discord-bot .",
     "docker:run": "docker run -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/settings:/app/settings --env-file .env docker-discord-bot",
@@ -35,7 +35,6 @@
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
     "eslint": "^10.4.0",
-    "globals": "^17.6.0",
-    "nodemon": "^3.0.2"
+    "globals": "^17.6.0"
   }
 }
