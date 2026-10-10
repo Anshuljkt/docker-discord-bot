@@ -128,7 +128,7 @@ class Fail2banService {
    * not running, or the exec itself errors.
    */
   async exec(argv, refreshed = false) {
-    // The container list is cached (refreshed every 60s), so a recreated
+    // The container list is only refreshed on demand, so a recreated
     // fail2ban container leaves a stale ID behind; re-query once and retry.
     if (refreshed) await this.dockerService.dockerUpdate();
 

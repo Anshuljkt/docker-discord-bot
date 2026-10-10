@@ -283,7 +283,6 @@ module.exports = {
     }
 
     // Verify container exists
-    await dockerService.dockerUpdate();
     const containers = await dockerService.dockerUpdate();
     const containerExists = containers.some(c =>
       c.Names.some(name => name.replace('/', '') === container),

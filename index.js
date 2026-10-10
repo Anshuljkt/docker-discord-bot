@@ -38,7 +38,8 @@ async function main() {
 
     console.log('[MAIN] Initializing DockerService...');
     const dockerService = new DockerService(settings);
-    await dockerService.dockerUpdate();
+    // Non-fatal at startup: commands refresh on demand once Docker is reachable.
+    await dockerService.dockerUpdate().catch(e => console.warn(`[MAIN] ${e.message}`));
     console.log('[MAIN] Docker service initialized');
 
     console.log('[MAIN] Initializing DiscordService...');
